@@ -1,0 +1,92 @@
+{
+  "name": "@qbit-oss/pqc",
+  "version": "0.1.0",
+  "description": "qbit post-quantum crypto WASM package",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "main": "lib/index.mjs",
+  "module": "lib/index.mjs",
+  "types": "lib/index.d.mts",
+  "files": [
+    "fixtures/**/*",
+    "lib/**/*",
+    "src/**/*",
+    "types/pqc.d.mts",
+    "wasm/**/*",
+    "vendor/libbitcoinpqc-qbit/**/*",
+    "docs/**/*",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "RELEASE.md",
+    "RELEASING.md",
+    "SECURITY.md",
+    "THIRD_PARTY_NOTICES"
+  ],
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.mts",
+      "import": "./lib/index.mjs",
+      "default": "./lib/index.mjs"
+    },
+    "./wasm/pqc.mjs": {
+      "types": "./types/pqc.d.mts",
+      "default": "./wasm/pqc.mjs"
+    },
+    "./wasm/pqc.wasm": "./wasm/pqc.wasm",
+    "./wasm/SHA256SUMS": "./wasm/SHA256SUMS",
+    "./LICENSE": "./LICENSE",
+    "./THIRD_PARTY_NOTICES": "./THIRD_PARTY_NOTICES",
+    "./package.json": "./package.json"
+  },
+  "browser": {
+    "module": false
+  },
+  "scripts": {
+    "build": "tsup",
+    "build:wasm": "scripts/build-wasm.sh baseline",
+    "check:vendor": "node scripts/check-vendor.mjs",
+    "check:wasm": "node scripts/check-wasm-hash.mjs",
+    "check:wasm:repro": "scripts/check-wasm-repro.sh",
+    "pack:check": "node scripts/check-pack.mjs",
+    "prepack": "pnpm build",
+    "prepublishOnly": "node scripts/check-publish.mjs",
+    "smoke:bundlers": "node scripts/run-bundler-smoke.mjs",
+    "smoke:consumer": "node scripts/run-consumer-smoke.mjs",
+    "smoke:load": "node scripts/smoke-load-built.mjs",
+    "test": "vitest run",
+    "test:mv3": "node scripts/run-mv3-smoke.mjs",
+    "test:smoke": "pnpm build && pnpm smoke:load",
+    "typecheck": "tsc --noEmit && pnpm build && tsc -p test/types/tsconfig.node16.json && tsc -p test/types/tsconfig.bundler.json",
+    "clean": "rm -rf lib coverage .context/repro"
+  },
+  "keywords": [
+    "qbit",
+    "pqc",
+    "slh-dsa",
+    "wasm"
+  ],
+  "author": "Qbit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Qbit-Org/qbit-pqc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Qbit-Org/qbit-pqc/issues"
+  },
+  "homepage": "https://github.com/Qbit-Org/qbit-pqc#readme",
+  "devDependencies": {
+    "@puppeteer/browsers": "3.2.4",
+    "@types/node": "^20.19.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.2.0",
+    "vitest": "^3.2.7"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

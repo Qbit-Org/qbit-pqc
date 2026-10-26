@@ -1,0 +1,142 @@
+Third-party notices for this package
+
+This package's own code is licensed under the terms in LICENSE. The WASM
+runtime it ships (wasm/pqc.wasm and its JavaScript loader wasm/pqc.mjs) also
+contains code from the third-party projects below as well as this package's
+own C shim. Any application or extension that redistributes wasm/pqc.mjs or
+wasm/pqc.wasm, whether copied by hand or emitted as an asset by a bundler,
+should ship both LICENSE and this file with them.
+
+The list was derived from the build pinned by EMSDK_IMAGE in
+scripts/build-wasm.sh (Emscripten 4.0.10) by linking with `wasm-ld --trace`. Besides this package's C shim
+(native/qbit_pqc_wasm.c), the linked objects are:
+
+- libbitcoinpqc sources and the SPHINCS+ reference implementation, both
+  vendored under vendor/libbitcoinpqc-qbit/;
+- from Emscripten's system libraries:
+  - musl libc: memcmp.o, __errno_location.o, __stack_chk_fail.o, getpid.o,
+    default_attr.o, libc.o;
+  - Emscripten's libc additions: pthread_self_stub.o, emscripten_memcpy*.o,
+    emscripten_memset.o, emscripten_get_heap_size.o,
+    emscripten_syscall_stubs.o, sbrk.o;
+  - Emscripten's stack helpers, built into libcompiler_rt.a: stack_limits.o,
+    stack_ops.o;
+  - dlmalloc: dlmalloc.o.
+
+Re-check this list whenever the vendored sources, the build flags or the
+Emscripten version change.
+
+==============================================================================
+libbitcoinpqc
+https://github.com/Qbit-Org/qbit-libbitcoinpqc (vendored pin: see
+vendor/libbitcoinpqc-qbit/UPSTREAM.md; license text also at
+vendor/libbitcoinpqc-qbit/LICENSE)
+==============================================================================
+
+MIT License
+
+Copyright (c) 2024 Hunter Beast @ Surmount Systems
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+SPHINCS+ reference implementation
+https://github.com/sphincs/sphincsplus (as vendored by libbitcoinpqc; license
+texts at vendor/libbitcoinpqc-qbit/sphincsplus/LICENSE and
+vendor/libbitcoinpqc-qbit/sphincsplus/LICENSES/)
+==============================================================================
+
+SPDX-License-Identifier: (LicenseRef-SPHINCS-PLUS-Public-Domain OR CC0-1.0 OR 0BSD OR MIT-0) AND MIT
+
+Upstream marks the tree with this SPDX expression only; it carries no
+per-file license headers and no copyright line for the MIT component. For the
+disjunctive part this package uses the code under CC0-1.0, which requires no
+notice. The MIT component's terms follow, copied byte for byte from
+vendor/libbitcoinpqc-qbit/sphincsplus/LICENSES/MIT.txt:
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+==============================================================================
+Emscripten (generated JavaScript loader wasm/pqc.mjs, and libc additions and
+stack helpers linked into wasm/pqc.wasm)
+https://github.com/emscripten-core/emscripten
+==============================================================================
+
+Emscripten is available under two licenses, the MIT license and the University
+of Illinois/NCSA Open Source License. This package uses it under the MIT
+license:
+
+Copyright (c) 2010-2014 Emscripten authors, see AUTHORS file.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+==============================================================================
+musl libc (portions linked into wasm/pqc.wasm via Emscripten)
+https://musl.libc.org/
+==============================================================================
+
+Copyright © 2005-2020 Rich Felker, et al.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+==============================================================================
+dlmalloc (memory allocator linked into wasm/pqc.wasm via Emscripten)
+==============================================================================
+
+Written by Doug Lea and released to the public domain, as explained at
+http://creativecommons.org/publicdomain/zero/1.0/

@@ -1,0 +1,8 @@
+# pnpm 10 skips dependency lifecycle scripts unless listed here. esbuild
+# (via tsup and vite) needs its postinstall to verify its native binary.
+onlyBuiltDependencies:
+  - esbuild
+
+# Only resolve versions published at least 14 days ago (in minutes), so a
+# freshly hijacked release is not picked up by a lockfile update.
+minimumReleaseAge: 20160

@@ -1,0 +1,5 @@
+# Code owners for every path. The main-protection ruleset requires a
+# code-owner review; without this file it enforces nothing. A catch-all owner
+# also covers the supply-chain paths (wasm/, vendor/, native/, scripts/,
+# .github/, package.json, pnpm-lock.yaml) and new files by default.
+* @kiwidream @djh58 @Anatolie

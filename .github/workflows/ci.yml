@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release/**'
+  push:
+    branches:
+      - main
+      - 'release/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Integrity gates. Only code locked in pnpm-lock.yaml runs here, with no ad-hoc
+  # package or browser download that could rewrite the checks at run time.
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # MANIFEST alone would accept an edited vendored file whose MANIFEST line
+      # was rewritten to match, so also compare it with the pinned upstream tree.
+      # The fetch is data addressed by the pinned commit SHA and only compared by
+      # this repository's own script; no downloaded code runs.
+      - name: Verify vendored C sources against MANIFEST and upstream
+        run: |
+          pin=$(node --input-type=module -e "import { readFileSync } from 'node:fs'; import { parseUpstreamPin } from './scripts/check-vendor.mjs'; console.log(parseUpstreamPin(readFileSync('vendor/libbitcoinpqc-qbit/UPSTREAM.md', 'utf8')))")
+          upstream="$RUNNER_TEMP/qbit-libbitcoinpqc"
+          git init -q "$upstream"
+          for attempt in 1 2 3; do
+            git -C "$upstream" fetch -q --depth=1 https://github.com/Qbit-Org/qbit-libbitcoinpqc.git "$pin" && break
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep $((attempt * 10))
+          done
+          pnpm check:vendor --upstream "$upstream"
+
+      - name: Verify checked-in WASM hashes
+        run: pnpm check:wasm
+
+      - name: Verify reproducible WASM rebuild
+        run: pnpm check:wasm:repro
+
+      - name: Check npm package contents
+        run: pnpm pack:check
+
+      - name: Fresh-consumer install smoke
+        run: pnpm smoke:consumer
+
+  # Downloads the pinned Chrome for Testing build (version in
+  # scripts/chrome-for-testing.mjs) in its own job, away from the integrity gates.
+  mv3-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chrome for Testing
+        run: pnpm exec browsers install chrome@156.0.8078.47 --path .context/browsers
+
+      - name: Run packed-tarball Chrome MV3 service-worker smoke
+        run: pnpm test:mv3
+
+  # Builds pages from the packed tarball with stock webpack, esbuild and Vite and
+  # runs them in the pinned Chrome for Testing. The smoke downloads those
+  # bundlers at run time, at exact versions (scripts/run-bundler-smoke.mjs), so
+  # it runs in its own job, away from the integrity gates.
+  bundler-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chrome for Testing
+        run: pnpm exec browsers install chrome@156.0.8078.47 --path .context/browsers
+
+      - name: Run packed-tarball bundler smoke
+        run: pnpm smoke:bundlers

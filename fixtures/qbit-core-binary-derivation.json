@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "name": "qbit-core-binary-derivation",
+  "description": "PQC public keys and P2MR addresses produced by an unmodified qbit Core release binary on regtest. Independent oracle for derivePQCKey(); see docs/derivation.md.",
+  "core": {
+    "repository": "Qbit-Org/qbit",
+    "tag": "v1.0.0",
+    "commit": "7ebcddb622d6e639041f005a189b048ec2a221fe",
+    "tagResolution": {
+      "method": "git ls-remote",
+      "remote": "https://github.com/Qbit-Org/qbit.git",
+      "tagObjectSha": "c72d230476ffe94e2f672d925f34288159233dfc"
+    },
+    "versionString": "qbit daemon version v1.0.0 qbitd",
+    "release": {
+      "asset": "qbit-1.0.0-x86_64-linux-gnu.tar.gz",
+      "assetSha256": "ae121af03263b55d530e3f3e8719a71362d0950cba82f54a2bc2d6c437a029b5",
+      "signerPolicy": {
+        "manifest": "contrib/keys/operator-keys/keys.json",
+        "manifestBlobSha": "321e9c3db427053a31ea80a88cc86a3bdc95913c",
+        "policyId": "qbit-release-keys-mainnet-000002",
+        "releaseLine": "mainnet",
+        "releaseSignatureQuorum": 3
+      },
+      "sha256sumsSignedBy": [
+        {
+          "alias": "operator-01",
+          "signingFingerprint": "289EA3EC2F1939A24984840ED26CFC05586D371E",
+          "primaryFingerprint": "51F569645F0545B0E6C840C2357052443CE094D8"
+        },
+        {
+          "alias": "operator-02",
+          "signingFingerprint": "1B95A7AA02F5530BDB1CD92387012E62F6CC1393",
+          "primaryFingerprint": "A762712935A3FFBC6523EAEBA637B315184F8119"
+        },
+        {
+          "alias": "operator-03",
+          "signingFingerprint": "05A14A415C26F4216DC254FE52D5CC557D764586",
+          "primaryFingerprint": "E875FE223D78E2BA7F785B587BFF9C2A1FB522FC"
+        }
+      ]
+    },
+    "binaries": {
+      "qbitdSha256": "d97c50154f87c4486a18204e3eb84fcab3b0c3d2e294942670589be1f48b3917",
+      "qbitCliSha256": "f1e927180ce38cf958dfa0d4f4eabfcdb2a0cc03d39fc0b04d7b49a3cee9bf84"
+    }
+  },
+  "generator": {
+    "path": "scripts/generate-qbit-core-binary-vectors.mjs",
+    "method": "deriveaddresses mr(pk(pqc(tprv/87h/1h/0h/{change}/*))) + importdescriptors + getaddressinfo desc=mr(pk(<pk32>)) on an unmodified qbit Core release binary (regtest). BIP32 leaves derived independently with node:crypto and cross-checked against Core: deriveaddresses mr(pk(pqc(tprv/path/index))) == deriveaddresses mr(pk(pqc(<leaf as depth-5 tprv>))) (both un-ranged, HKDF index 0). signdatapqchash output verified with verifydatapqchash."
+  },
+  "network": "regtest",
+  "algorithm": "SLH-DSA-SHA2-128s-bounded30",
+  "bip32": {
+    "seedSource": "BIP32 test vector 1 seed (public test data, not a BIP39 seed)",
+    "seedHex": "000102030405060708090a0b0c0d0e0f",
+    "tprv": "tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m"
+  },
+  "derivation": {
+    "descriptor": "mr(pk(pqc(<tprv>/87h/1h/0h/{change}/*)))",
+    "hkdf": "For every vector, including the internal chain, qbit Core calls DerivePQCKey(leaf, account=0, change=0, index=<descriptor position>). The BIP32 path change (0/1) is not the HKDF change.",
+    "masterSeed": "leafPrivateKeyHex is the 32-byte private BIP32 leaf key passed to DerivePQCKey as master_seed."
+  },
+  "chains": {
+    "external": {
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/*)))#tfakq4g9",
+      "coreNormalizedDescriptor": "mr(pk(pqc(qrpbSRJj3eCrXD2z4pcgc3u9JyzYaU8NvFBiAofLPyjf5J6hReRKQnTRkRdjcgpRKVNGk884VebuF3yxqeZGGd3JvMgtbRFZP5Eremu8Unc1nT2/87h/1h/0h/0/*)))#72l2fk7l",
+      "range": [
+        0,
+        4
+      ]
+    },
+    "internal": {
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/1/*)))#7gnqc2a6",
+      "coreNormalizedDescriptor": "mr(pk(pqc(qrpbSRJj3eCrXD2z4pcgc3u9JyzYaU8NvFBiAofLPyjf5J6hReRKQnTRkRdjcgpRKVNGk884VebuF3yxqeZGGd3JvMgtbRFZP5Eremu8Unc1nT2/87h/1h/0h/1/*)))#tt3u3ftq",
+      "range": [
+        0,
+        1
+      ]
+    }
+  },
+  "vectors": [
+    {
+      "name": "regtest_external_0",
+      "chain": "external",
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/*)))",
+      "bip32Path": "m/87h/1h/0h/0/0",
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 0,
+        "index": 0
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 0
+      },
+      "leafPrivateKeyHex": "4fd485fbc0bcd0f6c70d2ffddb9e49ce435f365a2c65053c26f89ff50ace528e",
+      "leafCrossCheck": {
+        "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/0)))",
+        "address": "qbrt1zmchfw2jvkedwrgjs7ew02flhwtyluef6znqu8tz48ue4h2073nashx8fq4"
+      },
+      "publicKeyHex": "3d69debe97aea0e7a8e04ba7e6eec390013f9d276b447b6681730e71e3934ddf",
+      "address": "qbrt1zmchfw2jvkedwrgjs7ew02flhwtyluef6znqu8tz48ue4h2073nashx8fq4",
+      "scriptPubKeyHex": "5220de2e972a4cb65ae1a250f65cf527f772c9fe653a14c1c3ac553f335ba9fe8cfb"
+    },
+    {
+      "name": "regtest_external_1",
+      "chain": "external",
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/*)))",
+      "bip32Path": "m/87h/1h/0h/0/1",
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 0,
+        "index": 1
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 1
+      },
+      "leafPrivateKeyHex": "4c0e66010bce1e45ae700e274d860b37f4950efdeab7136e9801ee2460640f8a",
+      "leafCrossCheck": {
+        "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/1)))",
+        "address": "qbrt1zm72d2vxqe9rcze8k2lm9fnvkqsxzc53yyslv7fl4l3pkua87fh4sypejdv"
+      },
+      "publicKeyHex": "3c7aa1c60e1da6f69c0e2675d1840c9e1e254a2766ed0f132cf35a8dc504d565",
+      "address": "qbrt1zj0pzfrqtslq9upnzt58003g60cfjylwa24cp038w7e0eyet2a86s608l4k",
+      "scriptPubKeyHex": "522093c2248c0b87c05e06625d0ef7c51a7e13227ddd557017c4eef65f92656ae9f5"
+    },
+    {
+      "name": "regtest_external_2",
+      "chain": "external",
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/*)))",
+      "bip32Path": "m/87h/1h/0h/0/2",
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 0,
+        "index": 2
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 2
+      },
+      "leafPrivateKeyHex": "653e7c3746f4ff58f6cc186492e8a567b69034c918ddc165cbed946189c12341",
+      "leafCrossCheck": {
+        "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/2)))",
+        "address": "qbrt1zetyhmraty0ewp8daz42evq96k6rh3vfk6sr7d7gff5nj8hka9dhszhzhme"
+      },
+      "publicKeyHex": "328ded861ca9fd66b9f300299b9cc6ebba5d88e5c13a5a46032aaf8407652b77",
+      "address": "qbrt1zx5nr8t2ta0gz3ntt6fx6ghm8d4z3av644v7sg0c064afnwlwwcvsdy5l8m",
+      "scriptPubKeyHex": "5220352633ad4bebd028cd6bd24da45f676d451eb355ab3d043f0fd57a99bbee7619"
+    },
+    {
+      "name": "regtest_external_3",
+      "chain": "external",
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/*)))",
+      "bip32Path": "m/87h/1h/0h/0/3",
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 0,
+        "index": 3
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 3
+      },
+      "leafPrivateKeyHex": "0e10aa504dbf05d4d72879f453e174a2898c6e2cc5868ea949e0bf60e8ae4121",
+      "leafCrossCheck": {
+        "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/3)))",
+        "address": "qbrt1z00vekzu6v8jrrurqlqlqt4zky4j53su6fvxy7v9hd23l4xp0zzaq6nklzd"
+      },
+      "publicKeyHex": "6f8b17e277f9132d051b896860512b2ac5f469eb45c5206994918368bcedc037",
+      "address": "qbrt1zd6anw79kccnkgwxxxrgkqsztruwn0admslsp5sv0vqgz7kq8m3cqrgejcs",
+      "scriptPubKeyHex": "52206ebb3778b6c6276438c630d160404b1f1d37f5bb87e01a418f60102f5807dc70"
+    },
+    {
+      "name": "regtest_external_4",
+      "chain": "external",
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/*)))",
+      "bip32Path": "m/87h/1h/0h/0/4",
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 0,
+        "index": 4
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 4
+      },
+      "leafPrivateKeyHex": "31c13debecc02def87306399199d63da6345bfe332e6d3003353ed51f5d4ee03",
+      "leafCrossCheck": {
+        "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/0/4)))",
+        "address": "qbrt1zktfqejk3n2jllfk2k03ypct64cwek2put2qrjkccqcjxn4fuxzwsrcqs9s"
+      },
+      "publicKeyHex": "bfb50f406ac5d043e42f325095d33bf199e5624818812b39617a4fb520f6c108",
+      "address": "qbrt1zcjyjl7ndywcnjd2lp0usmlr95nqmtln0u00wndlgj2xennymgp9suswqgr",
+      "scriptPubKeyHex": "5220c4892ffa6d23b139355f0bf90dfc65a4c1b5fe6fe3dee9b7e8928d99cc9b404b"
+    },
+    {
+      "name": "regtest_internal_0",
+      "chain": "internal",
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/1/*)))",
+      "bip32Path": "m/87h/1h/0h/1/0",
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 1,
+        "index": 0
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 0
+      },
+      "leafPrivateKeyHex": "d353cbc3b7c03dc507a7841750ba52039fe2de14e71fc195571e5bca712fea7c",
+      "leafCrossCheck": {
+        "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/1/0)))",
+        "address": "qbrt1zxxltvgpv52v4gqar39a2qgwsarzve528nam75efugx9k3w7ypepqxmhmye"
+      },
+      "publicKeyHex": "345ef90a4baa2cb63e6328184b8feeeb13ffed7856abb1ce2105a80b1f8e67f2",
+      "address": "qbrt1zxxltvgpv52v4gqar39a2qgwsarzve528nam75efugx9k3w7ypepqxmhmye",
+      "scriptPubKeyHex": "522031beb6202ca2995403a3897aa021d0e8c4ccd1479f77ea653c418b68bbc40e42"
+    },
+    {
+      "name": "regtest_internal_1",
+      "chain": "internal",
+      "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/1/*)))",
+      "bip32Path": "m/87h/1h/0h/1/1",
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 1,
+        "index": 1
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 1
+      },
+      "leafPrivateKeyHex": "196977629d91195e92d8976c2349033eb97d421560dbc4444bae21a7604cfe07",
+      "leafCrossCheck": {
+        "descriptor": "mr(pk(pqc(tprv8ZgxMBicQKsPeDgjzdC36fs6bMjGApWDNLR9erAXMs5skhMv36j9MV5ecvfavji5khqjWaWSFhN3YcCUUdiKH6isR4Pwy3U5y5egddBr16m/87h/1h/0h/1/1)))",
+        "address": "qbrt1zqapjrnvjaulrwahj38762wz3zfeacafpckmewsntdnlky8jw247svg58el"
+      },
+      "publicKeyHex": "338c9fd6266e54d846e0b0bae68b0b7314d52eaa89a80bf2722ee6a758b073ab",
+      "address": "qbrt1zk0evna3z8akktz50kn8ew45622wpfrlkh48skx4dv42fn86e3dus509jza",
+      "scriptPubKeyHex": "5220b3f2c9f6223f6d658a8fb4cf97569a529c148ff6bd4f0b1aad6554999f598b79"
+    }
+  ],
+  "dataSignature": {
+    "vector": "regtest_external_0",
+    "rpc": "signdatapqchash",
+    "proofMode": "p2mr-pubkey",
+    "domain": "QbitDataSigPQC",
+    "signedBytes": "datasigHashHex = SHA256(SHA256(utf8(domain)) || SHA256(utf8(domain)) || messageHash); the SLH-DSA signature is over these 32 bytes.",
+    "messageUtf8": "qbit-pqc:qbit-core-binary-derivation:signdatapqchash",
+    "messageHashHex": "9e4311ffb1521d8cce6a6956bf3ceb940538f269bb75da8b6c9dee1d153502a2",
+    "datasigHashHex": "50e25840482640db52786349b6c9b4e69905be28161f000143b561999a13479b",
+    "publicKeyHex": "3d69debe97aea0e7a8e04ba7e6eec390013f9d276b447b6681730e71e3934ddf",
+    "signatureHex": "fc47e72813c295e812dc3944023ffd1b00dd087c36f4c82d31a89322c8aa2ed9916202c19e205bd486587f1ebc63749996120afd4551da8cefdcbc6b67e91dc4f273231f4a902e7a6216981ec7c3f2b3231220de79d846b07b653a1449aaf1f067f0c554cc80bdc5bf3248446519cd5c8eb08c3df0d98b2a19bfbb63b563a97def8f907d4557aae85c3a889a8dba9b63e4556f86ac2955da4ea4aed395ff156b78a86b3f278dec811b5bac146ee8b9809159180adeac9a881f103ec680d79af8555942fd73852ec58624ad1a3dab4a5f0c01d4524a90b77af075075b85d0f06d8fc4e78d41c81e0f7d7a2a958db650e9a5a04faf402996a07aec9e468e838b9766be54ee97da837c7fa448de35409b06224da8e3309255f45e4a042a710317b0541cec46acdb6b515c01b7ee64b29c9773e9db568f57633a1a96c78172d3639d3ed814860039aa2bfdd0150d961796afb4f3ee7723bb6e277bba9a6bec7a612aa4e776a8ca4cef98c3bb53d383e3468a09d028c9116caa897954847335dd75991d97b42d2ef5d06bfa453f318d357c692fd3e8493259fe14c877045197901e49f20ca0b04e301432abd577ef04c5ea999519e3b728c9b5400043980c0847788dbf9e751607d08ee044c1e28a31889734105163b897023f387620832df80e09b8c7186553e41931b09970f0943412eaf55fd89bf4a91b328c635adf1a59c219d2b0f27887a5843e636ea80cf08dd3acadea4193415993d53755f40e0b5fc0d3b38a08896a512fbedf0e1c73b0d9d73d0591c163348be158ec5d2a7a5ae9ad04fe1e68abe192cfd849c393ff216bdf911da4e26e5f5d59232e927212c7b7c651bd7581135c0bb6af940396844b85c4bd1639fa2046417c2169020aeb75efd2eebf581635599f0670015a3f33e28187aad8dd94764ee534181a6efa77a91d67de7539fa8035beaeff6437aafbb5eed9e2d715c03b88a44e74e7507798f7cd2fe5a263669685935117bfa00049e54086f0b1fdcd60cbc5cbb018a60df794fa64fdc943e2191aeea1fe77cf2823463501ce2f1355bf3b326966d079af71c2f7beaf2c4ea8b7a826b8dc10a39c00b17075cab0cfa5b95c5824e90268ad933d4bc1c18ba348af19dcf1b7e181165d41d391d1392bbb0614c3abc23a5b0a88dec82944221bd4210213bfbcde9803fa487497626c7c0c645daf51a1c71a0a5386f99ccdcc60cfbc2fca6d557f5c4d9f109f33682f0a7a1d14a2b2efaa9f37d2d6bab7ab6fd8fd4eb1f24908aba659ed33516be28746c6894cdc807a6cbb63e70de55a982b0822d73c51f6e405048146d03f7e079fb663af8ba1af7de73efb6b9cc2a469467c91d47cdea9cd93a79b3446df51cc5748ea9349961ebc07182582577985e2b165967a631446c9f231f372e34f4e687c04dc81c5e429320c77d2742341fb00347f662e90ff94ffce410c0e3f264063e31c87d0189231f03cf7da6a21c913fc38521df105c97ad309dada8d7fdff0805aa878f04168f1fdf48ad0e73bfbc8df1b67342ae7a9c6517e539b6d6eef1d5ef65a4f07ce97b9ae139e894a867b2bc69b679428008c992c70f84f0d001298dde01405cc1407ab2f6ecb0f1b8fc6841aa386407172ffef1a8a8e6613bd34ccbdca2dc3fcb7546b0b78a3f88b76d8ab358d1ff38844eeb12448db38f73dd8a1807e1bf5231ecda9eba22f9b87b394f68b27becf0024f0c22b75639f0ec0940888c32303cb8bac783d01aca84a7ff1f3d53422032bb381daf1070bbf92f2c42e8d1a3a682a907d219e62a148da0b4fdea598d63a450f3f9cea4d02f32479fb72631ebdde0c3532489abfcf1598d8ad0459cdd0001771a1e389c33913da34f99c205bb8c4dc29a4e4a727b52d1260dc632e1c1ec5af419922a3933e92f10dcf3ce1b8bfec5efadc380c55c2b48028b037ae218f896d336d5f34073a4792d66c4ad66ba68bb14a27bf13166a4e4478c20a693e476ef2b48592221100abcc1d797364ee55477f5ba4cf3c606ef17b3dcbe2da7907552a75a000cad2033fa84dbbb22b7db06b4e43d997c6874e1adb9fc4174e47aa065ea5119c9980c86a253b5c215c72307c8065325dddbb57c243c23f1fd4ad8d4acee1a389965097f60aea1ab061d1a03b8646bbe18b68318d13ed13d45eb6a8a3fd15cfb7660519d3e32db5578126b4701bf8fd4c1ab1345f4f073accc151fb7a42a6996d8277ac1ac3833b2961d3cb98deea28f91a421541fdcf2b2d19aa12568cd3b385c8b67b15fc7f6194459cd875380561ad67d2682205185cc1d2ee36c8a28d1bcc83293b089558c8d5b3f674e71a7e54f88c583ad762a04cb11db0722e08d2a6f600197c2c003143a5aabd887c40e55e8ea85f280e2f85cd2ccddc957d10abe66f78838ad0a2ea5e09cf91ab6f7e9db5d16ad51345ebc3c66ab043483177e0dac760fdd1c6443f806fe5eb334962a3f1d65015dc69a1761b0e322a6ec15bf26bd99acef89b8cdf289a99b773e0b54ef56ece3abc2f2982d3d7302b5728c9c0c767895dfceb91b004d1c621dd1be0e0a1e93a5927baac976a68023aa2db4dcd185b2756eda1288f539925eb28c14efb79f71d03113a46548dab85333ef57d37f83f94f4186dfa0ef9c64979724131d154e0fc0840dcad31191d689c46a7db9bedaab5d9ed4fb76e1db551e3753aeea4d3da082f28ed2ad0cef74dec3b0e17bf5a4f2b9b4b3bb0911d1296e40b9e18b3e20bce0fc6a2d44f220385e861b215d1de9493d05cfdf4e75c42957e5885b3d9f0e7fd32ff0ad9ab54268d026a620e58061a1f05c7318ed6150ce9c32e11e928452c6d5bc09b776e9a0b1bf049f12dbd7d7936494cebaff9824fca1512c7c6077592d637a384d290f8934b71fa82a8b519d22af1c4d0ba77219fbb20749a90f48a63c167fb4a3771bbb97b31e7448b2cbe4994fe448403329bc2077c0f5212d5630e75e210794b57a05d71d0941f9ef3639ed214db415812496c4625201e7f83ebbfac069ead3ebbb7f44746db9fd7cc14f09a3ff2e35cd2516d8a65ea64afa831520b3724d466107483fd4b6fe747210cd703793a9227cc406a3b2cd7ae5bac059b7ded08bc76dcc9e37b3619a807b91ff0c3ad8f7f93e5cc56c1d4f1242b766b2bec294aa1a7beef3e9391540c4f8ad7495140a4332af62533106391d71e04b9709a1ae948d6a767240e8024aef77dfd0e56596fd54f4d56d19c893810bf3f88872d6c2c59f1a840d95df1adb56eac200db1097c7c96e39d8687bfe0a15e4161fc2949664bb4a312ea9012b2ef721f55d30ccffe4ac4f90b5e2fac699db184680202a6cb51d2474aa833d14fe38faacba397fa953b0d07a6dd0ec3735c23cc44201d36a612c1e487e0566bb1f796f7e4d75d74bc02cfc24ef801a85b7e87ccf3109b67711c5b9ba8119d9a43663382baad74f5629b2c8f67fab73a778c90f34b462234f0e84d478f08f394b1f3c2c478c83413070dc0df5447a7853a3b02ff83e9c317b3f24276824a87f3f54c1c31e6c34c980e7422c72f12b4b5a4ff8dfa8f0f2ad944090189b9edcd011a7a3f2ba534f3320c40f066b967aedefa6ffc71318a49ff2af7fe1604871388eed7c9062aa896874af1cdec3e36287bafa93267c8e6933807c4dfcb6f18180a39dae5cec473fdb199db0c6932ff12b741abe4fff8265dc12e92d0c9f76c5c100917dbceeb71d5f10aaa98746e40017020f50aa588ccbb39ade37d2edd2af83a41d0e20aeecdd55d7b744941ec22a91b931049ecd9d8e92043714e7f1f55d58c0854e0e78fe08b799bafc7b8342a14d5785c1c79987c7e3b76fd2a748b205ba8e468b959e6287895bdd76ee0bdde3c07edd39d523a0d92d4d7145977eab81e150f07b43332d643b2268ae257bc23fdcf1e9c11dbaed84fc2ed1b190b43c6f74218a784a28a1dbf6233a44e5f60a3cb5fe2e1ef4d1574e7868fc37f7aef85184aa870f1ff4217e979324d5246362fdf2658976da8cded79adf585c5642ac5d452ce90dd88ea2cc54f842dff73b56e70d951cd6aacb7283420fdd16418f477f98410c5d3114f5f02ab7e6475b8f640b836cfdf661d67d947ce36725fc1c9ea82184163c836d2632a7d109b3d85a346b84fc86b7f24eb3634205d8603320d636c99d0351df10f791a1721e198514f144faba60398bc5fe684614bb9c08c9d83bab241ee75eb425cb75823b194123dcc9386abea60097a0c498f80c20f2f01e3c8517dc729f9d2472c85cbb087169bf62a23f08752c94d02b139eacc43ae33e35f4651363099dcd055544f6ee96ed03a1e10aa4e74765e5909ef8d08e52cbe135ea7ced08569248033f000353deca1f5023d374321837b60f3081e669df88133d4e754d98f5332301e6a6cb6a3aa569008a85f6c4aefe617bc2691e0d645f9f51cf09f939e71ccfe552e9498212bcc2af9e2b1033a739c1c2b768d564f264fd25f487af5b686e8edf251f5f52fd9d639055479ccd9920941f8f0a069228a895909e26acad4089045092dd69abded14a5b65e0abcd1d2c44ea53e2da6981ab85aa372ccf58d260cc4689ed0d77da9f123c6a29c6421ea5cd7ecc6045ba6897bf5e8fff4398d38d328f4450c3f8b5722bd4332aabf2c62f8841400f0d2e3d25464a0a5b850f1f5163a8a35bb3f8083c75b6bdefa070700ed0ff5d4eb15f11d21e6d8ef6301350947556095411352635ac61d95214d5ba8d5dded206f670267a6f04d7d401ad500c2de183ae8300a97bd0f529333702be682fbff081c3adf01c173f192c3c9338a7ab5d343471d9d6237219c14e5f46571a21d3fc66ae655615e258173313392f37cb5211abd504dd0478156889397ff7e534d676f3800ea2fb13b5cc77f7a20e016fca03f6664080fc8b843468c32e350f44e35e48619d32021580ecb62cb43c0c4e94a77a8e82d308e48983fd7ea3da4770df3dae5625f494a30632659b593b6311cfdd04344879afdcd7c27a42fe34cf6bcf64992ba48acd4bd9df7b0409e78120af628069b6d5cd8130169aac53cf001137d1e343a34684d911a77984378e480a7fe7c12da35a687c54b46d42e9c7e370a449bd03b42dce50764d853a2c7fa2a3d5ff44fef424e404612b250ffb8d60db79468d44b107b6c012540e91422b53e31142fb48de728a38dc9409cab5f15fa3ef674718da51b5a8feaf8",
+    "leafVersion": 192,
+    "leafScriptHex": "203d69debe97aea0e7a8e04ba7e6eec390013f9d276b447b6681730e71e3934ddfb3",
+    "controlBlockHex": "c1",
+    "p2mrMerkleRootHex": "de2e972a4cb65ae1a250f65cf527f772c9fe653a14c1c3ac553f335ba9fe8cfb"
+  }
+}

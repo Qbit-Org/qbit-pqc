@@ -1,0 +1,7 @@
+# Fixtures are hashed byte-for-byte (fixtures/*.sha256), so never convert
+# their line endings on checkout.
+fixtures/** -text
+
+# Vendored upstream sources must stay byte-identical to their upstream git
+# blobs (pnpm check:vendor), so never convert their line endings on checkout.
+vendor/libbitcoinpqc-qbit/** -text

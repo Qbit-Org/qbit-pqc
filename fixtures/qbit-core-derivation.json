@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 2,
+  "name": "qbit-core-pqc-derivation",
+  "source": {
+    "repository": "Qbit-Org/qbit",
+    "commit": "7ebcddb622d6e639041f005a189b048ec2a221fe",
+    "coreReference": "https://github.com/Qbit-Org/qbit/blob/7ebcddb622d6e639041f005a189b048ec2a221fe/src/crypto/pqc.cpp#L137-L199",
+    "files": [
+      "src/crypto/pqc.cpp",
+      "src/script/descriptor.cpp",
+      "src/wallet/scriptpubkeyman.cpp",
+      "src/libbitcoinpqc/include/libbitcoinpqc/slh_dsa.h",
+      "src/libbitcoinpqc/src/slh_dsa/keygen.c"
+    ],
+    "fixtureGenerator": {
+      "path": "scripts/qbit-core-derivation-harness.cpp",
+      "method": "fallback C++ harness linked against qbit Core CHMAC_SHA256, WriteLE32, and vendored bounded30 SLH-DSA sources",
+      "notes": "Regtest deriveaddresses binaries were not available when the fixture was generated; the harness mirrors qbit Core DerivePQCKey and labels vectors as canonical descriptor generation, recovery-only matching, or primitive-only boundary coverage."
+    },
+    "notes": "masterSeedHex is the concrete private BIP32 leaf key bytes passed to qbit Core DerivePQCKey(...), not a BIP39 seed or mnemonic."
+  },
+  "algorithm": "SLH-DSA-SHA2-128s-bounded30",
+  "sizes": {
+    "masterSeedBytes": 32,
+    "keygenEntropyBytes": 128,
+    "publicKeyBytes": 32,
+    "secretKeyBytes": 64,
+    "signatureBytes": 3680
+  },
+  "derivation": {
+    "purpose": 87,
+    "defaultAccount": 0,
+    "mainnetCoinType": 0,
+    "testRegtestCoinType": 1,
+    "descriptor": "mr(pk(pqc(<xprv-or-qprv>/87h/{coin_type}h/0h/{path_change}/*)))",
+    "saltUtf8": "qbit-sphincs-v1",
+    "infoPrefixUtf8": "qbit/sphincs+/1",
+    "infoLayout": "utf8(infoPrefix) || uint32_le(hkdf.account) || uint32_le(hkdf.change) || uint32_le(hkdf.index)",
+    "hkdf": "PRK = HMAC-SHA256(key=salt, data=master_seed); OKM = RFC5869 HKDF-expand-SHA256(PRK, info, 128 bytes) with counter blocks 1..4.",
+    "keygen": "OKM is passed directly to bounded30 SLH-DSA seeded keygen; sk64 stores pk32 in its final 32 bytes.",
+    "canonicalDescriptorHkdf": "For qbit Core ranged descriptor generation at Qbit-Org/qbit v1.0.0: account=0, change=0, index=descriptor range position. Receive/change separation is carried by the BIP32 leaf path.",
+    "recoveryCompatibilityHkdf": "Core recovery/matching helpers also try alternate HKDF change/index tuples for already-known pubkeys; those vectors are not canonical descriptor-generation guidance."
+  },
+  "vectors": [
+    {
+      "name": "regtest_external_0",
+      "network": "regtest",
+      "descriptorTemplate": "mr(pk(pqc(<xprv>/87h/1h/0h/0/*)))",
+      "coreBehavior": "canonical_descriptor_generation",
+      "range": [
+        0,
+        0
+      ],
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 0,
+        "index": 0
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 0
+      },
+      "descriptorPath": "m/87h/1h/0h/0/0",
+      "boundary": false,
+      "masterSeedHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "messageHex": "716269742d7071632d64657269766174696f6e3a726567746573742d65787465726e616c2d30",
+      "keygenEntropyHex": "1343a52647b5518246282ee39e5732095e015b2d6f8cfe93c00e120d719aad383c886806123c1613c78fd3a2361362ec57f63d5f81302609b8b237655bb63454e6be9c5225af5982a5ce7e400578403d219c9e5ad1b1684d0b6dcb313c1fbef9d14c11a90ed9c35f59c0974199c21ff566aeef174b50b302481702be59d148d0",
+      "publicKeyHex": "09e6b1b692e876e39100a950f5bbe6d0dc3bc8ec569eb894a9418ff6a3583b3c",
+      "secretKeyHex": "9ed7713baaf30883ae58a2e9c89c2b19ed2cda8010ab916011f180b0ccb98c0409e6b1b692e876e39100a950f5bbe6d0dc3bc8ec569eb894a9418ff6a3583b3c",
+      "signatureSha256Hex": "77712c61afc25732c8a88a01b49260355425964d35be336597b83fae906e76e4"
+    },
+    {
+      "name": "regtest_recovery_change_1_index_7",
+      "network": "regtest",
+      "descriptorTemplate": "mr(pk(pqc(<xprv>/87h/1h/0h/1/*)))",
+      "coreBehavior": "recovery_match_only",
+      "range": [
+        7,
+        7
+      ],
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 1,
+        "index": 7
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 1,
+        "index": 7
+      },
+      "descriptorPath": "m/87h/1h/0h/1/7",
+      "boundary": false,
+      "masterSeedHex": "f0e1d2c3b4a5968778695a4b3c2d1e0f00112233445566778899aabbccddeeff",
+      "messageHex": "716269742d7071632d64657269766174696f6e3a726567746573742d6368616e67652d312d696e6465782d37",
+      "keygenEntropyHex": "a350b548e9f7af9d05c8199d8722c64c703921b2414f04a50bac574df0e0cc36e04bded93e98101fc79edc0080aff89819c6977126082f0acd25a08d1b339c4e6a65b570a18ad075ea841d9323671387a1c8f9ca0526e3273d0ccce41b307b3c13b828347d75ccf893722940b7d540571c7e1f903e6b9d88ce832bf9bd9328a1",
+      "publicKeyHex": "f06b7f31dee890651c550e4a5e289ec46017823d2de9f592e7ec3aa92ad1acb1",
+      "secretKeyHex": "fcc7435ddc4d8aba06ebaf722c8ad57db63a674d7cb7f72660958a2c6d21c059f06b7f31dee890651c550e4a5e289ec46017823d2de9f592e7ec3aa92ad1acb1",
+      "signatureSha256Hex": "a7b2743c2593c615017434b9820a56c835180d6470c5bb2bdbbeeef15797c7bd"
+    },
+    {
+      "name": "mainnet_external_index_42",
+      "network": "mainnet",
+      "descriptorTemplate": "mr(pk(pqc(<xprv>/87h/0h/0h/0/*)))",
+      "coreBehavior": "canonical_descriptor_generation",
+      "range": [
+        42,
+        42
+      ],
+      "path": {
+        "purpose": 87,
+        "coinType": 0,
+        "account": 0,
+        "change": 0,
+        "index": 42
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 42
+      },
+      "descriptorPath": "m/87h/0h/0h/0/42",
+      "boundary": false,
+      "masterSeedHex": "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100",
+      "messageHex": "716269742d7071632d64657269766174696f6e3a6d61696e6e65742d65787465726e616c2d3432",
+      "keygenEntropyHex": "eda4c4d2d3551f5e7b767e50ddae953fc77f0945e65d6bb72d05daffcfdfb01a18f0ce0109896067134f5e305a5f54f8eadfe834ef52eb2d65eb3d7df6ce0e5f11f2d1c2ea4992933a19ba09a93755275772a83277fd515878f8087e82dcc2494b3547395b846bb3b47cda20273718e47842618a9e62c4809abe6409bf937450",
+      "publicKeyHex": "86139270dc44be7079b37dd241eae4587d1f30940bceaf03661b7ab237c8806e",
+      "secretKeyHex": "b01a1fb9c9ff9b0c8f302d081382cc103dfb2af9513673b12dcf5ff580ab631f86139270dc44be7079b37dd241eae4587d1f30940bceaf03661b7ab237c8806e",
+      "signatureSha256Hex": "8a327d80708ee7273eff68c602f37d8d8adaa4b8589243fff35f582d514009af"
+    },
+    {
+      "name": "regtest_external_boundary_2147483647",
+      "network": "regtest",
+      "descriptorTemplate": "mr(pk(pqc(<xprv>/87h/1h/0h/0/*)))",
+      "coreBehavior": "canonical_descriptor_generation",
+      "range": [
+        2147483647,
+        2147483647
+      ],
+      "path": {
+        "purpose": 87,
+        "coinType": 1,
+        "account": 0,
+        "change": 0,
+        "index": 2147483647
+      },
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 2147483647
+      },
+      "descriptorPath": "m/87h/1h/0h/0/2147483647",
+      "boundary": true,
+      "masterSeedHex": "00112233445566778899aabbccddeeffffeeddccbbaa99887766554433221100",
+      "messageHex": "716269742d7071632d64657269766174696f6e3a726567746573742d65787465726e616c2d626f756e646172792d32313437343833363437",
+      "keygenEntropyHex": "09dd077eee9742c9589ffd5733360570decc5126dbc3de7b63f39f83d63668cf9e5dfc7388650e10d0eed1a360e430365c6c94d4ede8cd35413b59d69bda4cb1654b7545e013a83af15221e513e58c57c3286de21a7b9f5fb9b001b92dd942f3170faf92272b54ec48612f6d485edd07cbfa184ad3729e54efbef057e931b5c3",
+      "publicKeyHex": "1d15f87e32789e0d07886fc721df1d92899d425b835e22a3fa98277d17eb0b14",
+      "secretKeyHex": "263be4a53eb10e8ac1cf0b389da25a64de154bfb29fabb96c4016c9586bc11b21d15f87e32789e0d07886fc721df1d92899d425b835e22a3fa98277d17eb0b14",
+      "signatureSha256Hex": "d3f835a9fd45f1a44ee806c0cf22f9cd9a9058c1493d5efe89af16a914a6b772"
+    },
+    {
+      "name": "direct_index_4294967295",
+      "network": "direct",
+      "descriptorTemplate": "DerivePQCKey(master_seed, account=0, change=0, index=4294967295)",
+      "coreBehavior": "primitive_only",
+      "hkdf": {
+        "account": 0,
+        "change": 0,
+        "index": 4294967295
+      },
+      "boundary": true,
+      "masterSeedHex": "abcdef0123456789fedcba98765432100123456789abcdeff0e1d2c3b4a59687",
+      "messageHex": "716269742d7071632d64657269766174696f6e3a6469726563742d696e6465782d34323934393637323935",
+      "keygenEntropyHex": "cc2d1291225e373fead3adacd0fcab2d5d49c01c8bb640f21951452177dc0c1c85de4c028c401a32fd64925080cec961a24fc0cfb7fc70203741c929652d20782c537e686ac7f6c9f6b79423337ecdee3ecad7f464a2de10400404cafd63cd95cd81e441b9d397f09cfde00199bd4c4527973f1cf2ebf1e8fb4db9a33be231b1",
+      "publicKeyHex": "1d77ff3b8ff60a4a7b87b9f2577dced12f499eea4547030e658b6c705e6809b3",
+      "secretKeyHex": "cb5b2d93549bcc899ef7e3ef331cb9e38a330f547049c0baf8d9eebdbb7c04d01d77ff3b8ff60a4a7b87b9f2577dced12f499eea4547030e658b6c705e6809b3",
+      "signatureSha256Hex": "40e5e9acbdbcd7d463be8812d2adc4b7a344e10b17604c7b94d0b6ee5b6b63f5"
+    }
+  ]
+}
