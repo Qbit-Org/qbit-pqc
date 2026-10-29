@@ -106,15 +106,21 @@ COMMON_FLAGS=(
   '-sEXPORTED_RUNTIME_METHODS=["HEAPU8"]'
   '-sEXPORTED_FUNCTIONS=["_malloc","_free","_qbit_pqc_public_key_size","_qbit_pqc_secret_key_size","_qbit_pqc_signature_size","_qbit_pqc_keygen_entropy_min_size","_qbit_pqc_keygen","_qbit_pqc_secret_key_validate","_qbit_pqc_sign","_qbit_pqc_sign_with_stats","_qbit_pqc_verify"]'
   # The glue builds HEAPU8, which the wrapper copies inputs and secret keys
-  # through, and sizes memory growth with typed-array constructors and Math.
-  # The --pre-js shadows those names inside the factory with the copies the
-  # caller passes as Module.qbitPqcIntrinsics: init() passes the ones the
-  # package captured when it loaded, for the default loader (imported only
-  # when init() runs), moduleUrl and createModule alike. A factory called
-  # without them falls back to the copies the --extern-pre-js takes when
-  # pqc.mjs itself is evaluated, which is outside the factory.
+  # through, and sizes memory growth with typed-array constructors and Math,
+  # and reads the memory's buffer and grows it through WebAssembly.Memory's
+  # prototype. The --pre-js shadows those names inside the factory with the
+  # copies the caller passes as Module.qbitPqcIntrinsics, each only if it is a
+  # function: init() passes the ones the package captured when it loaded, for
+  # the default loader (imported only when init() runs), moduleUrl and
+  # createModule alike. Anything missing falls back to the copies the
+  # --extern-pre-js takes when pqc.mjs itself is evaluated, outside the
+  # factory. The --post-js gives the instantiated memory own buffer and grow
+  # properties that use the captured getter and method. The growth
+  # computation's reads of %TypedArray%.prototype.length and
+  # ArrayBuffer.prototype.byteLength are not covered (Qbit-Org/qbit-pqc#10).
   --extern-pre-js native/glue-intrinsics.extern-pre.js
   --pre-js native/glue-intrinsics.pre.js
+  --post-js native/glue-intrinsics.post.js
 )
 
 build_one() {

@@ -127,7 +127,7 @@ qbit Core does. Never reformat them, and change them only as described here:
   from source. Change it only with `pnpm build:wasm`.
 - `native/` is the C shim compiled with the vendored sources into
   `wasm/pqc.wasm`, and the JavaScript that `scripts/build-wasm.sh` adds to the
-  glue in `wasm/pqc.mjs` (`--pre-js` and `--extern-pre-js`). Change it only
+  glue in `wasm/pqc.mjs` (`--extern-pre-js`, `--pre-js` and `--post-js`). Change it only
   together with the rebuilt `wasm/` files.
 
 `.gitattributes` turns off line-ending conversion for `fixtures/`, `vendor/`

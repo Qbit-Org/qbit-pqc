@@ -48,14 +48,25 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
 - The Emscripten glue builds `HEAPU8` and its other heap views, when the
   module is instantiated and whenever a call grows WASM memory, with
   typed-array constructors captured when the package loads, and computes how
-  far to grow with captured `Math` functions. It used the globals of that
-  moment, so code that replaced `globalThis.Uint8Array` or `Math` after the
-  package loaded chose the view the wrapper copies inputs and secret keys
-  into and out of, and how much memory a call grew. `init()` passes the
-  package's copies to the factory for the default loader, `moduleUrl` and
-  `createModule`; a factory called without them uses copies the glue takes
-  when it is imported. Keys, signatures and the module's exports are
-  unchanged.
+  far to grow with captured `Math` functions. Once the module is
+  instantiated, it also reads the memory's buffer and grows it with
+  `WebAssembly.Memory.prototype`'s `buffer` getter and `grow` method captured
+  the same way. It used the globals and the prototype of the moment, so code
+  that replaced `globalThis.Uint8Array` or `Math`, or patched
+  `WebAssembly.Memory.prototype`, after the package loaded chose the view the
+  wrapper copies inputs and secret keys into and out of, and how much memory
+  a call grew. `init()` passes the package's copies to the factory as
+  `qbitPqcIntrinsics`, a new optional member of `PqcWasmModuleOptions`, for
+  the default loader, `moduleUrl` and `createModule`. A factory that wraps the
+  package's should pass it on; for any entry it does not get as a function,
+  the glue uses its own copy, taken when it is imported. Not covered: the
+  views built while `init()` instantiates the module read the memory's buffer
+  through `WebAssembly.Memory.prototype`, and the growth computation reads
+  `%TypedArray%.prototype.length` and `ArrayBuffer.prototype.byteLength`
+  through the prototypes, so patching those accessors can still change how
+  far a call grows memory, or make it fail.
+  [Qbit-Org/qbit-pqc#10](https://github.com/Qbit-Org/qbit-pqc/issues/10)
+  tracks these reads. Keys, signatures and the module's exports are unchanged.
 
 ### Native library
 
@@ -72,7 +83,7 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
 - `wasm/pqc.mjs` and `wasm/pqc.wasm`, and the copy of `pqc.wasm` embedded in
   `lib/index.mjs`, are rebuilt with these changes and the glue change above.
   Their SHA-256 values in `wasm/SHA256SUMS` are now
-  `091449fc10219a553c551bc41821888d66d640a3c6bf772c906e150ea79b8279` for
+  `7ef994255544c922fcb04d05bbc22f60edb3b4faddb75e1dd3ac8bb8eb75e056` for
   `pqc.mjs` (previously `4c9f9d9d…`) and
   `f7bbbf8ce9cc7d039c1083ddebfd8fdd176864d2bae61b2021eb7f391dd678aa` for
   `pqc.wasm` (previously `8696a3a4…`). Integrators who pin these hashes, as

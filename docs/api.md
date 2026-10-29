@@ -39,19 +39,33 @@ the WASM memory, throws the same `TypeError`. Allocation sizes and the copies
 into and out of WASM memory likewise use constructors, methods and sizes
 captured when the module loads,
 so code that replaces `globalThis.Uint8Array` or patches
-`%TypedArray%.prototype` after that cannot change how many bytes are written,
-or the key `derivePQCKey` derives.
+`%TypedArray%.prototype` after that cannot change how many bytes the wrapper
+copies, or the key `derivePQCKey` derives.
 The Emscripten glue builds `HEAPU8`, the view those copies go through, when
 the module is instantiated and again whenever a call grows WASM memory, and it
-computes how far to grow. For both it uses the typed-array constructors and
-`Math` functions the package captured when it loaded, which `init()` passes to
-the factory, so replacing a typed-array constructor or `Math` after that cannot
-point the copies, secret keys included, at another buffer or change how much
-memory a call grows. This holds for the default loader, which `init()` imports
-only when it runs, and for `moduleUrl` and `createModule`. A `createModule`
-factory that wraps the package's should pass on the options it receives, as
-`createModule: createPqcModule` does; called without them, the glue uses the
-copies it took when it was imported.
+computes how far to grow. `init()` passes the factory, as `qbitPqcIntrinsics`,
+typed-array constructors and `Math` functions the package captured when it
+loaded, and `WebAssembly.Memory.prototype`'s `buffer` getter and `grow` method
+captured the same way. The glue builds the views with those constructors and
+sizes the growth with those `Math` functions, and once the module is
+instantiated it reads the memory's buffer and grows it with that getter and
+method. That holds for the default loader, which `init()` imports only when it
+runs, and for `moduleUrl` and `createModule`. So replacing a typed-array
+constructor or `Math` after the package loads, or patching
+`WebAssembly.Memory.prototype` after `init()` settles, does not change which
+buffer the views are on, and the copies, secret keys included, still reach
+WASM memory. It does not cover everything the glue reads. The first views,
+built while `init()` instantiates the module, read the memory's buffer through
+`WebAssembly.Memory.prototype`, as the rest of loading reads globals. And to
+compute how far to grow, the glue reads `%TypedArray%.prototype.length` and
+`ArrayBuffer.prototype.byteLength` through the prototypes, so code that patches
+those accessors after the package loads can change how far a call grows memory,
+or make it fail.
+[Qbit-Org/qbit-pqc#10](https://github.com/Qbit-Org/qbit-pqc/issues/10) tracks
+these reads. A `createModule` factory
+that wraps the package's should pass on the options it receives, as
+`createModule: createPqcModule` does; for anything missing from them, the glue
+uses the copies it took when it was imported.
 Validation never runs caller code, such as a `Proxy` trap in an argument's
 prototype chain, except the traps of a `Proxy` passed as `options` (see
 [Message size](signing.md#message-size)). The client `init()` resolves with is frozen,

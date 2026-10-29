@@ -7,7 +7,7 @@ import { freshClient } from './fresh-client'
 // then held whatever its allocation held (Qbit-Org/qbit-pqc#5). The typed API
 // always passes valid arguments, so these call the export directly.
 
-const STATS_BYTES = 11 * 4
+const STATS_BYTES = constants.SIGN_STATS_WORDS * Uint32Array.BYTES_PER_ELEMENT
 const FILL = 0xa5
 
 describe('qbit_pqc_sign_with_stats', () => {

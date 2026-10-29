@@ -96,8 +96,8 @@ const pqc = await init({
 
 With `createModule`, `moduleUrl` is ignored. A factory of your own that calls
 the package's should pass on the options object `init()` gives it: besides
-`locateFile` and `wasmBinary`, it carries the typed-array constructors and
-`Math` functions the glue builds its heap views with (see
+`locateFile` and `wasmBinary`, it carries `qbitPqcIntrinsics`, the copies of
+globals the glue builds its heap views and grows memory with (see
 [API details](api.md)). With `locateFile`, as here,
 `pqc.wasm` is loaded from the extension. Without `locateFile` or `wasmBinary`,
 `init()` compiles the embedded copy, so the extension need not ship
