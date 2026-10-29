@@ -132,6 +132,18 @@ qbit Core does. Never reformat them, and change them only as described here:
 and `wasm/`, so a checkout with `core.autocrlf` cannot rewrite them, and
 Prettier ignores all four paths.
 
+## Examples and code snippets
+
+`pnpm smoke:consumer` runs every `examples/*.mjs` against the installed tarball
+and checks that it prints what its `console.log` comments promise (see
+[examples/README.md](examples/README.md)). Every JavaScript or TypeScript
+fence in README.md and `docs/` needs a `<!-- snippet: <file> -->` line right
+above it: a JavaScript fence names the `examples/*.mjs` file it shows in full,
+and a TypeScript fence a `test/types/*.mts` file, which `pnpm typecheck`
+compiles, holding each of its blocks as whole lines. To add a snippet, put the
+code in such a file first, then mark the fence; `test/doc-snippets.test.mjs`
+checks the two agree.
+
 ## Pull requests
 
 Target the branch that "Branches" in [RELEASING.md](RELEASING.md) names:

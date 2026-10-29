@@ -30,6 +30,7 @@ So `sign` and `signWithStats` throw a `RangeError` for a `msg` longer than
 one, before allocating any WASM memory. To sign or verify a longer message,
 pass `{ allowLargeMessage: true }` as the last argument:
 
+<!-- snippet: test/types/docs-signing-large-message.mts -->
 ```ts
 const signature = pqc.sign(secretKey, payload, { allowLargeMessage: true })
 const valid = pqc.verify(publicKey, payload, signature, { allowLargeMessage: true })
