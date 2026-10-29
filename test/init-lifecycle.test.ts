@@ -4,12 +4,12 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { runInNewContext } from 'node:vm'
 
-import ts from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as Pqc from '../src/index'
 import createPqcModule from '../wasm/pqc.mjs'
 import { freshClient } from './fresh-client'
+import { importSourceCopy } from './source-copy'
 
 type PqcExports = typeof Pqc
 type PqcModuleOptions = Pqc.PqcWasmModuleOptions
@@ -472,14 +472,11 @@ describe('the status of a failed load outside Node', () => {
   async function browserPqc(): Promise<
     PqcExports & { errorResponseStatus(url: string, base?: string): Promise<number | undefined> }
   > {
-    const source = readFileSync(new URL('../src/core.ts', import.meta.url), 'utf8')
     copies += 1
-    const { outputText } = ts.transpileModule(
-      `const process = undefined\n${source}\nexport { errorResponseStatus }\n// copy ${copies}\n`,
-      { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }
+    return importSourceCopy(
+      `browser ${copies}`,
+      source => `const process = undefined\n${source}\nexport { errorResponseStatus }\n`
     )
-    const url = `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
-    return import(/* @vite-ignore */ url)
   }
 
   // A factory that fails the way Emscripten's does when it cannot load the

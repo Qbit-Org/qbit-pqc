@@ -4,6 +4,8 @@
 // `typesVersions` (tsconfig.json beside this file).
 import { init as initEmbedded, type PqcClient } from '@qbit-oss/pqc'
 import { init, PqcError } from '@qbit-oss/pqc/external-wasm'
+import { createPqcWorkerClient, type PqcWorkerClient } from '@qbit-oss/pqc/worker'
+import { servePqcWorker } from '@qbit-oss/pqc/worker/handler'
 
 export async function load(): Promise<PqcClient> {
   const client: PqcClient = await init({ locateFile: path => `/wasm/${path}` })
@@ -12,4 +14,9 @@ export async function load(): Promise<PqcClient> {
 
 export function isPqcError(error: unknown): error is PqcError {
   return error instanceof PqcError
+}
+
+export function connect(port: MessagePort, other: MessagePort): PqcWorkerClient {
+  servePqcWorker({ client: init(), endpoint: other })
+  return createPqcWorkerClient(port, { onError: event => console.error(event) })
 }

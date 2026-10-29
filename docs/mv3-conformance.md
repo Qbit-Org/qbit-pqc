@@ -62,14 +62,20 @@ pins. Both entries share one module instance and one published client (see
 Call `init()` when the service worker starts, and have event handlers
 `await ready()` before they sign or verify: the client does not survive a
 service-worker restart. Signing blocks the service worker for about 0.6 s per
-signature; [Service workers](loading.md#service-workers) describes signing in
-a Worker that an offscreen document starts instead.
+signature; [Signing in a worker](worker.md#chrome-mv3-extensions) shows how to
+sign in a Worker that an offscreen document starts instead, with
+`@qbit-oss/pqc/worker`. That needs the `offscreen` permission.
 
 The package MV3 smoke packs `@qbit-oss/pqc`, installs that tarball in
 a clean project outside the repository, copies the installed runtime artifacts
 into an extension, and loads them through `chrome-extension://...` with the
 recipe above, and fails if any script it copies into the extension carries
-the base64 copy of `pqc.wasm` that `lib/index.mjs` embeds. A passing
+the base64 copy of `pqc.wasm` that `lib/index.mjs` embeds. It also signs and
+verifies a golden vector through the relay
+[Signing in a worker](worker.md#chrome-mv3-extensions) describes: from the
+service worker with `chrome.runtime.sendMessage` to an offscreen document,
+whose `@qbit-oss/pqc/worker` client calls a dedicated worker that serves
+`@qbit-oss/pqc/worker/handler`. A passing
 run first validates that the source is the external consumer's installed
 `node_modules/@qbit-oss/pqc` path, then reports
 `artifactSource: installed-packed-tarball`. This prevents a repo-root build

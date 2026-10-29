@@ -87,7 +87,7 @@ packed = stagePackedConsumer(repoRoot, 'qbit-pqc-consumer-')
 let passed = false
 let failure
 try {
-  for (const script of ['consumer-smoke.mjs', 'package-surface.mjs', 'wasm-sha256.mjs']) {
+  for (const script of ['consumer-smoke.mjs', 'consumer-worker.mjs', 'package-surface.mjs', 'wasm-sha256.mjs']) {
     copyFileSync(join(here, script), join(packed.consumerDir, script))
   }
   await run('node', ['consumer-smoke.mjs'], { cwd: packed.consumerDir })

@@ -36,6 +36,16 @@
       "import": "./lib/external-wasm.mjs",
       "default": "./lib/external-wasm.mjs"
     },
+    "./worker": {
+      "types": "./lib/worker.d.mts",
+      "import": "./lib/worker.mjs",
+      "default": "./lib/worker.mjs"
+    },
+    "./worker/handler": {
+      "types": "./lib/worker-handler.d.mts",
+      "import": "./lib/worker-handler.mjs",
+      "default": "./lib/worker-handler.mjs"
+    },
     "./wasm/pqc.mjs": {
       "types": "./types/pqc.d.mts",
       "default": "./wasm/pqc.mjs"
@@ -51,6 +61,12 @@
     "*": {
       "external-wasm": [
         "./lib/external-wasm.d.mts"
+      ],
+      "worker": [
+        "./lib/worker.d.mts"
+      ],
+      "worker/handler": [
+        "./lib/worker-handler.d.mts"
       ]
     }
   },

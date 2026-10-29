@@ -256,5 +256,7 @@ that thread, create an offscreen document (`chrome.offscreen.createDocument`
 with the `WORKERS` reason) that starts a dedicated module `Worker`, call
 `init()` and sign in that worker, and relay each request from the service
 worker to the offscreen document with `chrome.runtime.sendMessage` and from
-there to the worker with `postMessage`. A dedicated worker allows `import()`,
-so the default `init()` works there.
+there to the worker. A dedicated worker allows `import()`, so the default
+`init()` works there. `@qbit-oss/pqc/worker` provides the client for the
+offscreen document and the handler for the worker;
+[Signing in a worker](worker.md#chrome-mv3-extensions) shows the relay.

@@ -82,7 +82,14 @@ describe('npm package contents policy', () => {
   })
 
   it('requires the tsup output of every entry and of lib/core.mjs', () => {
-    for (const output of ['lib/index.mjs', 'lib/external-wasm.mjs', 'lib/external-wasm.d.mts', 'lib/core.mjs']) {
+    for (const output of [
+      'lib/index.mjs',
+      'lib/external-wasm.mjs',
+      'lib/external-wasm.d.mts',
+      'lib/core.mjs',
+      'lib/worker.mjs',
+      'lib/worker-handler.mjs',
+    ]) {
       const paths = REQUIRED_FILES.filter(path => path !== output)
 
       expect(() => validatePackFiles(paths)).toThrow(`missing required files:\n  ${output}`)

@@ -1,10 +1,9 @@
 import { createHash, createHmac, hkdfSync } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 
-import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { constants, init, type PqcClient } from '../src/index'
+import { importSourceCopy } from './source-copy'
 
 // derivePQCKey hashes with a SHA-256, HMAC-SHA-256 and HKDF of its own in
 // src/core.ts, written against captured intrinsics (see the top of that
@@ -32,12 +31,10 @@ interface HashInternals {
 }
 
 async function loadHashInternals(): Promise<HashInternals> {
-  const source = readFileSync(new URL('../src/core.ts', import.meta.url), 'utf8')
-  const { outputText } = ts.transpileModule(`${source}\nexport { sha256, hmacSha256, derivePQCKeygenEntropy }\n`, {
-    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
-  })
-  const url = `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
-  return (await import(/* @vite-ignore */ url)) as HashInternals
+  return importSourceCopy<HashInternals>(
+    'hash internals',
+    source => `${source}\nexport { sha256, hmacSha256, derivePQCKeygenEntropy }\n`
+  )
 }
 
 function patternBytes(length: number, tag: number): Uint8Array {

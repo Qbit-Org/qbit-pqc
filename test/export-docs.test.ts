@@ -6,6 +6,9 @@ import { describe, expect, it } from 'vitest'
 import * as core from '../src/core'
 import * as external from '../src/external-wasm'
 import * as pqc from '../src/index'
+import * as shared from '../src/shared'
+import * as worker from '../src/worker'
+import * as workerHandler from '../src/worker-handler'
 
 // The doc comments of each entry's source are the API reference editors show
 // on hover and its lib/*.d.mts carries to consumers; esbuild drops them from
@@ -13,8 +16,11 @@ import * as pqc from '../src/index'
 // re-export from another entry listed here is documented in that entry.
 const ENTRIES: Record<string, object> = {
   'core.ts': core,
+  'shared.ts': shared,
   'external-wasm.ts': external,
   'index.ts': pqc,
+  'worker.ts': worker,
+  'worker-handler.ts': workerHandler,
 }
 
 function parse(file: string): ts.SourceFile {

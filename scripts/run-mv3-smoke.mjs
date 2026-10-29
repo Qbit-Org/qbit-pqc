@@ -276,10 +276,15 @@ function prepareExtension({ extensionDir, packageRoot }) {
   mkdirSync(join(extensionDir, 'wasm'), { recursive: true })
 
   // The README recipe imports @qbit-oss/pqc/external-wasm, which imports
-  // lib/core.mjs. lib/index.mjs, which embeds pqc.wasm, is not copied.
+  // lib/core.mjs and lib/shared.mjs. lib/index.mjs, which embeds pqc.wasm, is
+  // not copied. The offscreen document and its worker load the worker client
+  // and handler.
   const artifacts = [
     ['lib/core.mjs', 'lib/core.mjs'],
+    ['lib/shared.mjs', 'lib/shared.mjs'],
     ['lib/external-wasm.mjs', 'lib/external-wasm.mjs'],
+    ['lib/worker.mjs', 'lib/worker.mjs'],
+    ['lib/worker-handler.mjs', 'lib/worker-handler.mjs'],
     ['wasm/pqc.mjs', 'wasm/pqc.mjs'],
     ['wasm/pqc.wasm', 'wasm/pqc.wasm'],
   ]
@@ -302,6 +307,12 @@ function prepareExtension({ extensionDir, packageRoot }) {
     "chrome.runtime.sendMessage({ type: 'qbit-pqc-mv3-ping' }, response => { document.body.textContent = response?.ok ? 'ready' : 'error'; });\n"
   )
   writeFileSync(
+    join(extensionDir, 'offscreen.html'),
+    '<!doctype html><meta charset="utf-8"><title>Qbit PQC MV3 Offscreen</title><script type="module" src="./offscreen.mjs"></script>\n'
+  )
+  writeFileSync(join(extensionDir, 'offscreen.mjs'), offscreenSource())
+  writeFileSync(join(extensionDir, 'pqc-worker.mjs'), workerSource())
+  writeFileSync(
     join(extensionDir, 'manifest.json'),
     `${JSON.stringify(
       {
@@ -312,6 +323,7 @@ function prepareExtension({ extensionDir, packageRoot }) {
           service_worker: 'background.mjs',
           type: 'module',
         },
+        permissions: ['offscreen'],
         content_security_policy: {
           extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
         },
@@ -335,6 +347,64 @@ function assertNoEmbeddedWasm(extensionDir) {
   if (embedding.length > 0) {
     throw new Error(`extension scripts embed pqc.wasm: ${embedding.join(', ')}`)
   }
+}
+
+// The dedicated worker the offscreen document starts: it serves the client
+// that the external-wasm entry's default init() loads from the extension's
+// wasm/pqc.wasm, as docs/worker.md shows.
+function workerSource() {
+  return `import { init } from './lib/external-wasm.mjs';
+import { servePqcWorker } from './lib/worker-handler.mjs';
+
+servePqcWorker({ client: init() });
+`
+}
+
+// The offscreen document: it starts the worker, and runs each request the
+// service worker relays with chrome.runtime.sendMessage on the worker client,
+// answering with hex, since those messages are JSON.
+function offscreenSource() {
+  return `import { createPqcWorkerClient, PqcError } from './lib/worker.mjs';
+
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+const client = createPqcWorkerClient(new Worker(new URL('./pqc-worker.mjs', import.meta.url), { type: 'module' }));
+
+async function signAndVerify({ secretKeyHex, publicKeyHex, messageHex }) {
+  const secretKey = hexToBytes(secretKeyHex);
+  const message = hexToBytes(messageHex);
+  const signature = await client.sign(secretKey, message);
+  const valid = await client.verify(hexToBytes(publicKeyHex), message, signature);
+  const badKey = new Uint8Array(secretKey);
+  badKey[badKey.length - 1] ^= 0x80;
+  const badKeyError = await client.sign(badKey, message).then(() => undefined, error => error);
+  return {
+    ok: true,
+    signatureHex: bytesToHex(signature),
+    valid,
+    secretKeyAttached: secretKey.length === client.constants.SK_SIZE,
+    badKeyKind: badKeyError instanceof PqcError ? badKeyError.kind : String(badKeyError),
+  };
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== 'qbit-pqc-mv3-offscreen-sign') {
+    return false;
+  }
+  signAndVerify(message).then(sendResponse, error => sendResponse({ ok: false, error: String(error?.stack ?? error) }));
+  return true;
+});
+`
 }
 
 function backgroundSource(artifactSource) {
@@ -369,6 +439,47 @@ function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(label);
   }
+}
+
+// Relays a request to the offscreen document, retrying, on the missing
+// receiver error only, while its listener is not registered yet.
+async function sendToOffscreen(message) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await chrome.runtime.sendMessage(message);
+    } catch (error) {
+      if (attempt >= 50 || !String(error).includes('Receiving end does not exist')) {
+        throw error;
+      }
+      await new Promise(resolveDelay => setTimeout(resolveDelay, 100));
+    }
+  }
+}
+
+// Signs and verifies \`vector\` in a dedicated worker that an offscreen
+// document starts, since a service worker cannot start one (docs/worker.md).
+async function offscreenWorkerRoundTrip(vector) {
+  if (!(await chrome.offscreen.hasDocument())) {
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['WORKERS'],
+      justification: 'Sign with @qbit-oss/pqc off the service worker thread',
+    });
+  }
+  const response = await sendToOffscreen({
+    type: 'qbit-pqc-mv3-offscreen-sign',
+    secretKeyHex: vector.secretKeyHex,
+    publicKeyHex: vector.publicKeyHex,
+    messageHex: vector.messageHex,
+  });
+  if (!response?.ok) {
+    throw new Error(\`offscreen worker round trip failed: \${response?.error}\`);
+  }
+  assertEqual(response.signatureHex, vector.signatureHex, \`\${vector.name} offscreen worker signature mismatch\`);
+  assertEqual(response.valid, true, \`\${vector.name} offscreen worker verification failed\`);
+  assertEqual(response.secretKeyAttached, true, 'the worker client detached the secret key');
+  assertEqual(response.badKeyKind, 'BAD_KEY', 'the worker client did not rebuild the PqcError');
+  return { ok: true, vector: vector.name };
 }
 
 async function runSmoke() {
@@ -406,6 +517,8 @@ async function runSmoke() {
     vectorNames.push(vector.name);
   }
 
+  const offscreenWorker = await offscreenWorkerRoundTrip(fixture.vectors[0]);
+
   return {
     ok: true,
     artifactSource: ${JSON.stringify(artifactSource)},
@@ -415,6 +528,7 @@ async function runSmoke() {
     algorithm: fixture.algorithm,
     vectorCount: vectorNames.length,
     vectorNames,
+    offscreenWorker,
     wasmHeapBytes: client.wasmHeapBytes(),
   };
 }
@@ -565,6 +679,9 @@ try {
   }
   if (result.artifactSource !== ARTIFACT_SOURCE) {
     throw new Error(`MV3 smoke reported unexpected artifact source: ${result.artifactSource}`)
+  }
+  if (result.offscreenWorker?.ok !== true) {
+    throw new Error(`MV3 smoke ran no offscreen worker round trip: ${JSON.stringify(result.offscreenWorker)}`)
   }
 
   mkdirSync(dirname(outPath), { recursive: true })

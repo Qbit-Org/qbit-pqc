@@ -60,6 +60,22 @@ returns, and inputs such as a master seed or secret key, stay in memory until
 the application overwrites them. The WASM heap grows as needed and never
 shrinks, so freed memory is zeroed but stays part of the module.
 
+Signing in a worker with `@qbit-oss/pqc/worker` moves bytes between threads.
+The client copies each byte argument into a fresh buffer and transfers it, so
+the caller's buffers are not detached; the worker zeroes its copies when the
+call returns or throws, and transfers the keys and signatures it returns back,
+zeroing them if it cannot send them. Besides the caller's own buffers and
+results, the package cannot wipe: the parts of each message that are cloned
+rather than transferred (the method name, HKDF fields, range index and
+`allowLargeMessage` flag); whatever an application relays outside the
+package, such as the JSON of `chrome.runtime` messages between an MV3 service
+worker and its offscreen document; the memory of a worker that crashes or is
+terminated during a call; the answers to calls a client stopped waiting for
+with a second `close()` or `close({ force: true })`; and the results of a
+custom client served with `servePqcWorker` that are views on part of a buffer
+or on a `SharedArrayBuffer`, which are cloned. [Signing in a worker](docs/worker.md#arguments-and-buffers)
+details each.
+
 An SLH-DSA-SHA2-128s-bounded30 key is designed for at most 2^30 signatures.
 This package does not count signatures. qbit Core refuses to sign past that
 bound, and applications that sign with these keys must enforce it as well.
