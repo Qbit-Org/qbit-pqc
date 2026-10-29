@@ -320,7 +320,7 @@ export interface PqcSignStats {
   wotscLayerCount: number
   /**
    * The WOTS+C attempt cap for each layer: a layer that reaches it fails
-   * signing with `SIGNING_LIMIT`. 0 when signing failed before it started.
+   * signing with `SIGNING_LIMIT`.
    */
   wotscMaxAttempts: number
   /** The most attempts any one WOTS+C layer took. */
