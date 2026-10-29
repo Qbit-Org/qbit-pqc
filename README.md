@@ -132,6 +132,14 @@ CSP and packaging rules for Chrome extensions. With
 `expectedWasmSha256: constants.WASM_SHA256`, `init()` refuses WASM bytes with
 any other SHA-256 before compiling them ([Checking pqc.wasm](docs/loading.md#checking-pqcwasm)).
 
+When you serve or package `pqc.wasm` yourself, import from
+`@qbit-oss/pqc/external-wasm` instead: the same API without the embedded copy,
+which keeps about 70 KB out of your bundle. Its `init()` loads `pqc.wasm` from
+`locateFile`, beside `moduleUrl`, or the package's `wasm/pqc.wasm` file. Both
+entries share one module instance, so a client that `init()` publishes through
+either one serves the named exports of both.
+[Package entries](docs/loading.md#package-entries) compares them.
+
 ### Service workers
 
 Service workers, Chrome MV3 extension service workers included, do not allow
@@ -140,7 +148,7 @@ import the Emscripten factory and pass it to `init()`:
 
 <!-- snippet: test/types/mv3-wasm-import.mts -->
 ```ts
-import { init } from '@qbit-oss/pqc'
+import { init } from '@qbit-oss/pqc/external-wasm'
 import createPqcModule from '@qbit-oss/pqc/wasm/pqc.mjs'
 
 const pqc = await init({
@@ -149,11 +157,14 @@ const pqc = await init({
 })
 ```
 
-With `createModule`, `moduleUrl` is ignored. Without `locateFile`, the
-static-factory recipe `init({ createModule: createPqcModule })` compiles the
-embedded copy, so the extension need not ship `pqc.wasm`. Call `init()` at the top level of the
-service worker, because the client does not survive a restart, and sign off
-its thread, because each signature blocks it for about 0.6 s.
+The extension packages `pqc.wasm` at `wasm/pqc.wasm`, and its service worker
+bundle carries no second copy. With `createModule`, `moduleUrl` is ignored. To
+ship no `pqc.wasm` file instead, import `init` from `@qbit-oss/pqc` and leave
+out `locateFile`: the static-factory recipe
+`init({ createModule: createPqcModule })` compiles the embedded copy. Call
+`init()` at the top level of the service worker, because the client does not
+survive a restart, and sign off its thread, because each signature blocks it
+for about 0.6 s.
 [Service worker details](docs/loading.md#service-workers) explain both.
 
 ## Message size

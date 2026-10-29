@@ -31,6 +31,11 @@
       "import": "./lib/index.mjs",
       "default": "./lib/index.mjs"
     },
+    "./external-wasm": {
+      "types": "./lib/external-wasm.d.mts",
+      "import": "./lib/external-wasm.mjs",
+      "default": "./lib/external-wasm.mjs"
+    },
     "./wasm/pqc.mjs": {
       "types": "./types/pqc.d.mts",
       "default": "./wasm/pqc.mjs"
@@ -41,6 +46,13 @@
     "./LICENSE": "./LICENSE",
     "./THIRD_PARTY_NOTICES": "./THIRD_PARTY_NOTICES",
     "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "external-wasm": [
+        "./lib/external-wasm.d.mts"
+      ]
+    }
   },
   "browser": {
     "module": false

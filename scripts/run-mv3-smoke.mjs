@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,6 +13,7 @@ import {
   chromeSandboxFlags,
   findPinnedChromeForTesting,
 } from './chrome-for-testing.mjs'
+import { filesEmbeddingWasm } from './package-surface.mjs'
 import { assertPackedPackageRoot, removePackedConsumer, stagePackedConsumer } from './stage-packed-consumer.mjs'
 import { installTerminationHandlers } from './termination-handlers.mjs'
 
@@ -274,8 +275,11 @@ function prepareExtension({ extensionDir, packageRoot }) {
   mkdirSync(join(extensionDir, 'lib'), { recursive: true })
   mkdirSync(join(extensionDir, 'wasm'), { recursive: true })
 
+  // The README recipe imports @qbit-oss/pqc/external-wasm, which imports
+  // lib/core.mjs. lib/index.mjs, which embeds pqc.wasm, is not copied.
   const artifacts = [
-    ['lib/index.mjs', 'lib/index.mjs'],
+    ['lib/core.mjs', 'lib/core.mjs'],
+    ['lib/external-wasm.mjs', 'lib/external-wasm.mjs'],
     ['wasm/pqc.mjs', 'wasm/pqc.mjs'],
     ['wasm/pqc.wasm', 'wasm/pqc.wasm'],
   ]
@@ -317,12 +321,25 @@ function prepareExtension({ extensionDir, packageRoot }) {
     )}\n`
   )
 
+  assertNoEmbeddedWasm(extensionDir)
   return extensionDir
+}
+
+// The extension loads only the external-wasm entry, so none of its scripts may
+// carry the base64 copy of pqc.wasm that lib/index.mjs embeds (its magic
+// number, \0asm, starts with AGFzbQ in base64). That the two entries share one
+// module instance is checked in Node, by the tests and the consumer smoke.
+function assertNoEmbeddedWasm(extensionDir) {
+  const scripts = readdirSync(extensionDir, { recursive: true }).filter(file => /\.(?:m?js|html)$/.test(file))
+  const embedding = filesEmbeddingWasm(extensionDir, scripts)
+  if (embedding.length > 0) {
+    throw new Error(`extension scripts embed pqc.wasm: ${embedding.join(', ')}`)
+  }
 }
 
 function backgroundSource(artifactSource) {
   return `import createPqcModule from './wasm/pqc.mjs';
-import { constants, init } from './lib/index.mjs';
+import { constants, init } from './lib/external-wasm.mjs';
 import { fixture } from './golden-fixture.mjs';
 
 function hexToBytes(hex) {
@@ -394,6 +411,7 @@ async function runSmoke() {
     artifactSource: ${JSON.stringify(artifactSource)},
     env: 'chrome-mv3-service-worker',
     package: '@qbit-oss/pqc',
+    entry: '@qbit-oss/pqc/external-wasm',
     algorithm: fixture.algorithm,
     vectorCount: vectorNames.length,
     vectorNames,

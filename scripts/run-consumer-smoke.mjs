@@ -87,9 +87,23 @@ packed = stagePackedConsumer(repoRoot, 'qbit-pqc-consumer-')
 let passed = false
 let failure
 try {
-  copyFileSync(join(here, 'consumer-smoke.mjs'), join(packed.consumerDir, 'consumer-smoke.mjs'))
-  copyFileSync(join(here, 'wasm-sha256.mjs'), join(packed.consumerDir, 'wasm-sha256.mjs'))
+  for (const script of ['consumer-smoke.mjs', 'package-surface.mjs', 'wasm-sha256.mjs']) {
+    copyFileSync(join(here, script), join(packed.consumerDir, script))
+  }
   await run('node', ['consumer-smoke.mjs'], { cwd: packed.consumerDir })
+
+  // TypeScript's node10 resolution reads no exports map, so the types of each
+  // subpath must resolve through typesVersions. Checked with the repository's
+  // TypeScript against the installed package.
+  const typesDir = join(packed.consumerDir, 'types-node10')
+  mkdirSync(typesDir)
+  for (const file of ['entries.ts', 'tsconfig.json']) {
+    copyFileSync(join(repoRoot, 'test/types/node10', file), join(typesDir, file))
+  }
+  await run(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', typesDir], {
+    cwd: packed.consumerDir,
+  })
+  console.log('node10 type resolution: PASS')
 
   // Each example runs as a reader runs it: from a project that installed the
   // tarball, importing the package by name.

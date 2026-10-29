@@ -658,18 +658,18 @@ describe('init() without expectedWasmSha256', () => {
 })
 
 // Outside Node, init() fetches a located pqc.wasm itself. These tests evaluate
-// src/index.ts again with `process` shadowed in the module, as
+// src/core.ts again with `process` shadowed in the module, as
 // test/init-lifecycle.test.ts does, so it takes that path, and with fetch
 // stubbed. The factory still runs in Node, with the fetched bytes.
 let copies = 0
 
-// src/index.ts evaluated again from a data: URL, which also exports
+// src/core.ts evaluated again from a data: URL, which also exports
 // loaderDirectory; outside Node, with `process` shadowed in the module. With
 // `stubResolve`, import.meta.resolve is globalThis.__pqcTestResolve instead,
 // and with `stubImport`, the import() of a moduleUrl loader is
 // globalThis.__pqcTestImport: a data: module can resolve neither a bare nor a
 // relative specifier. Both are textual replacements in the source, so they
-// break silently if src/index.ts stops spelling these expressions exactly so;
+// break silently if src/core.ts stops spelling these expressions exactly so;
 // the assertions that the stubs were called guard against that.
 async function transpiledPqc({
   browser,
@@ -680,7 +680,7 @@ async function transpiledPqc({
   stubResolve?: boolean
   stubImport?: boolean
 }): Promise<PqcExports & { loaderDirectory(moduleUrl: string | URL | undefined): string }> {
-  let source = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
+  let source = readFileSync(new URL('../src/core.ts', import.meta.url), 'utf8')
   if (stubResolve) {
     // Code only: the error messages name import.meta.resolve too.
     source = source.replace(/import\.meta\.resolve(?=[ (])/g, 'globalThis.__pqcTestResolve')

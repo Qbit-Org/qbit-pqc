@@ -17,8 +17,8 @@ type PqcModuleOptions = Pqc.PqcWasmModuleOptions
 const wasmDir = fileURLToPath(new URL('../wasm/', import.meta.url))
 const SK = new Uint8Array(64)
 
-// A copy of the package with no init() called yet: each test starts with no
-// client published and no load to share.
+// A copy of the package's "." entry with no init() called yet: each test
+// starts with no client published and no load to share.
 async function freshPqc(): Promise<PqcExports> {
   vi.resetModules()
   return (await import('../src/index')) as PqcExports
@@ -463,7 +463,7 @@ describe('a load failure with no file to name', () => {
 })
 
 // Outside Node, init() requests a failed http(s) or chrome-extension: URL once
-// more, only to read an error status. These tests evaluate src/index.ts again
+// more, only to read an error status. These tests evaluate src/core.ts again
 // with `process` shadowed in the module, so it takes that path, and with fetch
 // stubbed.
 describe('the status of a failed load outside Node', () => {
@@ -472,7 +472,7 @@ describe('the status of a failed load outside Node', () => {
   async function browserPqc(): Promise<
     PqcExports & { errorResponseStatus(url: string, base?: string): Promise<number | undefined> }
   > {
-    const source = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
+    const source = readFileSync(new URL('../src/core.ts', import.meta.url), 'utf8')
     copies += 1
     const { outputText } = ts.transpileModule(
       `const process = undefined\n${source}\nexport { errorResponseStatus }\n// copy ${copies}\n`,

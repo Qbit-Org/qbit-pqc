@@ -8,7 +8,8 @@ The package is an ES module with no separate CommonJS build. On Node
 `^20.19.0 || >=22.12.0`, its `engines` range, `require('@qbit-oss/pqc')` loads
 that same module through `require(esm)`, so CommonJS and ES module callers
 share one instance: `init()` through either one sets up the top-level exports
-for both.
+for both. The same holds for the two package entries, `@qbit-oss/pqc` and
+`@qbit-oss/pqc/external-wasm` (see [Package entries](loading.md#package-entries)).
 
 Named top-level `deriveP2mrDescriptorKey`, `derivePQCKey`, `keygen`, `sign`,
 `signWithStats`, `verify`, and `secretKeyValidate` exports are also available

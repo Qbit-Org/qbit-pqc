@@ -1,10 +1,11 @@
 // Bundler smoke page for @qbit-oss/pqc. scripts/run-bundler-smoke.mjs copies
 // it into each page of a throwaway project, next to the golden fixture, and
-// each bundler builds it from there. It imports the package BY NAME, as an
-// external consumer would, and reports through
-// globalThis.__QBIT_PQC_BUNDLER_SMOKE__ without logging keys or signatures.
-import { constants } from '@qbit-oss/pqc'
-
+// each bundler builds it from there. The page's entry imports the package BY
+// NAME, as an external consumer would, and passes the client here; this file
+// imports nothing from the package, so a page that loads
+// @qbit-oss/pqc/external-wasm bundles nothing from @qbit-oss/pqc. It reports
+// through globalThis.__QBIT_PQC_BUNDLER_SMOKE__ without logging keys or
+// signatures.
 import { fixture } from './golden-fixture.js'
 
 function hexToBytes(hex) {
@@ -22,7 +23,7 @@ function bytesToHex(bytes) {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function deterministicEntropy(seedByte) {
+function deterministicEntropy(constants, seedByte) {
   const entropy = new Uint8Array(constants.MIN_ENTROPY)
   for (let i = 0; i < entropy.length; i += 1) {
     entropy[i] = (seedByte + ((i * 37) % 256)) & 0xff
@@ -41,7 +42,7 @@ async function checkVectors(loadClient) {
   const vectorNames = []
   for (const vector of fixture.vectors) {
     const message = hexToBytes(vector.messageHex)
-    const pair = client.keygen(deterministicEntropy(vector.seedByte))
+    const pair = client.keygen(deterministicEntropy(client.constants, vector.seedByte))
     check(bytesToHex(pair.publicKey) === vector.publicKeyHex, `${vector.name} public key mismatch`)
     check(bytesToHex(pair.secretKey) === vector.secretKeyHex, `${vector.name} secret key mismatch`)
     check(client.secretKeyValidate(pair.secretKey), `${vector.name} secret key validation failed`)

@@ -291,7 +291,7 @@ interface RecordingCopy {
   readonly created: Array<Uint8Array | Uint32Array>
 }
 
-// A second copy of src/index.ts, evaluated while globalThis.Uint8Array and
+// A second copy of src/core.ts, evaluated while globalThis.Uint8Array and
 // Uint32Array are Proxies of the real constructors that record each array
 // they construct. The copy captures those Proxies as its intrinsics, so every
 // typed array it allocates is a genuine one that is also recorded, and a test
@@ -306,7 +306,7 @@ async function loadRecordingCopy(): Promise<RecordingCopy> {
         return array
       },
     })
-  const source = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
+  const source = readFileSync(new URL('../src/core.ts', import.meta.url), 'utf8')
   // The trailing comment keeps this copy's data: URL apart from any other
   // copy's, so the import evaluates it afresh.
   const { outputText } = ts.transpileModule(`${source}\n// recording copy\n`, {

@@ -67,7 +67,9 @@ bound, and applications that sign with these keys must enforce it as well.
 By default, `init()` compiles a copy of `wasm/pqc.wasm` that the build embeds
 in `lib/index.mjs`: the same binary, pinned by `wasm/SHA256SUMS`, and the
 package's tests check it against that hash. It fetches `pqc.wasm` only when
-`moduleUrl` or `locateFile` says where the file is. Do not load `pqc.wasm` from
+`moduleUrl` or `locateFile` says where the file is. The
+`@qbit-oss/pqc/external-wasm` entry embeds no copy and always loads the file,
+unless `wasmBinary` passes the bytes. Do not load `pqc.wasm` from
 a CDN or mutable backend URL. Package and serve the checked-in `wasm/pqc.mjs`,
 `wasm/pqc.wasm`, and `wasm/SHA256SUMS` artifacts with the consuming app or
 extension, together with `LICENSE` and `THIRD_PARTY_NOTICES`
