@@ -586,6 +586,64 @@ typedef int (*spx_sha512_hashblocks_impl_fn)(unsigned char *statebytes,
 static spx_sha256_hashblocks_impl_fn spx_sha256_hashblocks_impl = NULL;
 static spx_sha512_hashblocks_impl_fn spx_sha512_hashblocks_impl = NULL;
 
+#if defined(BITCOINPQC_ENABLE_TEST_HELPERS)
+int spx_sha2_test_sha256_impl(void)
+{
+    spx_sha256_hashblocks_impl_fn impl =
+        SPX_SHA_ATOMIC_LOAD_PTR(&spx_sha256_hashblocks_impl);
+
+    if (impl == NULL) {
+        return SPX_SHA2_IMPL_UNINITIALIZED;
+    }
+    if (impl == crypto_hashblocks_sha256_ref) {
+        return SPX_SHA2_IMPL_SCALAR;
+    }
+    if (impl == spx_sha2_x86_hashblocks_sha256) {
+        return SPX_SHA2_IMPL_X86_SHA_NI;
+    }
+#if defined(SPX_ENABLE_ARM_SHA)
+    if (impl == spx_sha2_arm_hashblocks_sha256) {
+        return SPX_SHA2_IMPL_ARM_SHA;
+    }
+#endif
+#if defined(SPX_USE_COMMONCRYPTO_SHA2)
+    if (impl == spx_cc_sha256_hashblocks) {
+        return SPX_SHA2_IMPL_COMMONCRYPTO;
+    }
+#endif
+
+    return SPX_SHA2_IMPL_UNKNOWN;
+}
+
+int spx_sha2_test_sha512_impl(void)
+{
+    spx_sha512_hashblocks_impl_fn impl =
+        SPX_SHA_ATOMIC_LOAD_PTR(&spx_sha512_hashblocks_impl);
+
+    if (impl == NULL) {
+        return SPX_SHA2_IMPL_UNINITIALIZED;
+    }
+    if (impl == crypto_hashblocks_sha512_ref) {
+        return SPX_SHA2_IMPL_SCALAR;
+    }
+    if (impl == spx_sha2_x86_hashblocks_sha512) {
+        return SPX_SHA2_IMPL_X86_SHA_NI;
+    }
+#if defined(SPX_ENABLE_ARM_SHA)
+    if (impl == spx_sha2_arm_hashblocks_sha512) {
+        return SPX_SHA2_IMPL_ARM_SHA;
+    }
+#endif
+#if defined(SPX_USE_COMMONCRYPTO_SHA2)
+    if (impl == spx_cc_sha512_hashblocks) {
+        return SPX_SHA2_IMPL_COMMONCRYPTO;
+    }
+#endif
+
+    return SPX_SHA2_IMPL_UNKNOWN;
+}
+#endif
+
 static spx_sha256_hashblocks_impl_fn spx_sha256_select_hashblocks_impl(void)
 {
     int mode = spx_opt_sha_backend_mode();

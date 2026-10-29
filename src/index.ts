@@ -12,16 +12,20 @@
 // constructors, getters and methods, plus the DataView methods, Math and
 // Number, so a patched prototype can neither change the derived key nor keep
 // it from zeroing its buffers. Error constructors are still looked up when
-// thrown; whatever they resolve to, the call throws. This covers the calls on a
-// client, not loading: init() and the Emscripten loader look up globals such as
-// WebAssembly, fetch and atob while init() runs, so code that runs before it
-// settles can change the module it loads.
+// thrown; whatever they resolve to, the call throws. The Emscripten glue builds
+// HEAPU8, the view every copy goes through, and grows memory with what
+// GLUE_INTRINSICS below holds, except for the reads of
+// %TypedArray%.prototype.length and ArrayBuffer.prototype.byteLength when it
+// computes how far to grow. This covers the calls on a client, not loading:
+// init() and the Emscripten loader look up globals such as WebAssembly, fetch
+// and atob while init() runs, so code that runs before it settles can change
+// the module it loads.
 const IntrinsicUint8Array = Uint8Array
 const IntrinsicUint32Array = Uint32Array
 const IntrinsicDataView = DataView
 const IntrinsicObjectPrototype = Object.prototype
 const { from: arrayFrom } = Array
-const { ceil: mathCeil, floor: mathFloor } = Math
+const { ceil: mathCeil, floor: mathFloor, max: mathMax, min: mathMin } = Math
 const { isFinite: numberIsFinite, isInteger: numberIsInteger } = Number
 const {
   defineProperties: objectDefineProperties,
@@ -33,6 +37,37 @@ const objectHasOwn = Function.prototype.call.bind(Object.prototype.hasOwnPropert
   object: object,
   key: PropertyKey
 ) => boolean
+// Passed to the Emscripten factory as `qbitPqcIntrinsics`. Its glue uses the
+// constructors and Math functions in place of the globals of the same names
+// (native/glue-intrinsics.pre.js) to build its heap views, at instantiation and
+// whenever a call grows memory, and to compute how far to grow, and the memory
+// getter and method in place of WebAssembly.Memory.prototype's from just
+// before the factory resolves, when it also rebuilds the views built during
+// instantiation (native/glue-intrinsics.post.js). init() imports the
+// package's glue only when it runs, so copies the glue took itself could
+// already be replaced ones. Where there is no WebAssembly the memory entries
+// are undefined, and init() cannot load the module there anyway.
+const wasmMemoryPrototype: WebAssembly.Memory | undefined =
+  typeof WebAssembly === 'object' ? WebAssembly.Memory?.prototype : undefined
+const wasmMemoryBuffer = wasmMemoryPrototype && Object.getOwnPropertyDescriptor(wasmMemoryPrototype, 'buffer')?.get
+const wasmMemoryGrow = wasmMemoryPrototype?.grow
+const GLUE_INTRINSICS = Object.freeze({
+  Int8Array,
+  Uint8Array: IntrinsicUint8Array,
+  Int16Array,
+  Uint16Array,
+  Int32Array,
+  Uint32Array: IntrinsicUint32Array,
+  Float32Array,
+  Float64Array,
+  BigInt64Array,
+  BigUint64Array,
+  mathCeil,
+  mathMax,
+  mathMin,
+  memoryBuffer: wasmMemoryBuffer && Function.prototype.call.bind(wasmMemoryBuffer),
+  memoryGrow: wasmMemoryGrow && Function.prototype.call.bind(wasmMemoryGrow),
+})
 
 const OK = 0
 const ERROR_BAD_KEY = -2
@@ -563,7 +598,8 @@ export interface PqcWasmModule {
    * `_qbit_pqc_sign`, also writing `constants.SIGN_STATS_WORDS` uint32 words of
    * signing stats at `statsOut`, when signing fails too. A NULL pointer
    * argument, or a NULL `message` with a nonzero `messageLength`, returns
-   * `BITCOIN_PQC_ERROR_BAD_ARG` and leaves those words unwritten.
+   * `BITCOIN_PQC_ERROR_BAD_ARG` with the words zeroed, or unwritten when
+   * `statsOut` itself is NULL.
    */
   _qbit_pqc_sign_with_stats(
     signatureOut: number,
@@ -589,8 +625,9 @@ export interface PqcWasmModule {
 
 /**
  * The options a {@link PqcWasmModuleFactory} takes. {@link InitOptions} extends
- * them: `init()` passes the factory a `locateFile` of its own, which calls
- * yours, and the bytes to compile, if it has them.
+ * them, apart from `qbitPqcIntrinsics`: `init()` passes the factory a
+ * `locateFile` of its own, which calls yours, the bytes to compile, if it has
+ * them, and its own `qbitPqcIntrinsics`.
  */
 export interface PqcWasmModuleOptions {
   /**
@@ -610,6 +647,24 @@ export interface PqcWasmModuleOptions {
    * `pqc.wasm` that `moduleUrl` or `locateFile` gives.
    */
   wasmBinary?: ArrayBuffer | Uint8Array
+  /**
+   * Set by `init()`, not by callers: copies of the typed-array constructors and
+   * `Math` functions, and of `WebAssembly.Memory.prototype`'s `buffer` getter
+   * and `grow` method, that the package captured when it loaded. The
+   * package's factory builds its heap views with the constructors, sizes memory
+   * growth with the `Math` functions and, before it resolves, switches the
+   * memory to the getter and method and rebuilds the views through them. So
+   * once `init()` has settled, the views are on the memory's own buffer,
+   * whatever code that ran after the package loaded did to those globals or
+   * that prototype. Computing how far to grow still reads
+   * `%TypedArray%.prototype.length` and `ArrayBuffer.prototype.byteLength`
+   * through the prototypes (Qbit-Org/qbit-pqc#10). Its contents are internal.
+   * A factory that wraps the package's should pass it on unchanged, for
+   * example by passing on the whole options object. Without it, and for any
+   * entry that is not a function, the package's factory uses the copy it took
+   * when `wasm/pqc.mjs` was imported.
+   */
+  qbitPqcIntrinsics?: object
 }
 
 /**
@@ -626,7 +681,7 @@ export type PqcWasmModuleFactory = (options?: PqcWasmModuleOptions) => Promise<P
  * that call's (see {@link init} for when they match), even while that load is
  * still pending; once a load has failed, the next call starts a new one.
  */
-export interface InitOptions extends PqcWasmModuleOptions {
+export interface InitOptions extends Omit<PqcWasmModuleOptions, 'qbitPqcIntrinsics'> {
   /**
    * The URL of an Emscripten loader to import instead of the package's
    * `wasm/pqc.mjs`, such as a copy served with your app from the same package
@@ -955,6 +1010,7 @@ async function loadModule(options: InitOptions): Promise<PqcWasmModule> {
   // Where the factory loads pqc.wasm from, when it has no bytes.
   let wasmUrl: string | undefined
   const moduleOptions: PqcWasmModuleOptions = {
+    qbitPqcIntrinsics: GLUE_INTRINSICS,
     locateFile: (path, prefix) => {
       const located = locateFile?.(path, prefix) ?? locateDefault(path, prefix)
       if (path === 'pqc.wasm') {

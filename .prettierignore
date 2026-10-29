@@ -7,8 +7,8 @@ node_modules/
 # Byte-exact paths, never reformatted: vendor/ must stay blob-equal to
 # upstream (pnpm check:vendor), fixtures/ are hashed byte-for-byte
 # (fixtures/*.sha256), wasm/SHA256SUMS pins pqc.mjs and pqc.wasm (pnpm
-# check:wasm), and native/ is the C source of that pinned build (pnpm
-# check:wasm:repro).
+# check:wasm), and native/ is the C shim and glue source of that pinned build
+# (pnpm check:wasm:repro).
 vendor/
 fixtures/
 wasm/

@@ -10,6 +10,7 @@ vendor/libbitcoinpqc-qbit/** -text
 # so never convert their line endings on checkout.
 wasm/** -text
 
-# native/ is compiled into pqc.wasm, which pnpm check:wasm:repro rebuilds and
-# compares byte-for-byte, so never convert its line endings on checkout.
+# native/ is built into pqc.wasm and pqc.mjs, which pnpm check:wasm:repro
+# rebuilds and compares byte-for-byte, so never convert its line endings on
+# checkout.
 native/** -text
