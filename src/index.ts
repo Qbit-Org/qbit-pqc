@@ -300,6 +300,9 @@ export interface PqcDerivedKey {
  * number is a uint32. When signing fails before it starts, as for `BAD_KEY` or
  * `OUT_OF_MEMORY`, every field is 0, the caps included; when it fails after it
  * started, as for `SIGNING_LIMIT`, the fields hold the attempts made until then.
+ * `BAD_SIGNATURE` can happen either way: before signing starts when deriving
+ * the signing randomness fails, after it when the signature or its self-check
+ * fails.
  */
 export interface PqcSignStats {
   /** The FORS+C salt-grind attempts made for this signature. */
@@ -382,8 +385,8 @@ export class PqcError extends Error {
   /** What failed; see {@link PqcErrorKind}. It follows from `code`, except for `NOT_INITIALIZED` and `LOAD_FAILED`. */
   readonly kind: PqcErrorKind
   /**
-   * The signing stats on an error from `signWithStats`, and undefined on any
-   * other error. Every field is 0, the caps included, when signing failed
+   * The signing stats on a native failure of `signWithStats`, and undefined on
+   * any other error, `NOT_INITIALIZED` included. Every field is 0, the caps included, when signing failed
    * before it started, as for `BAD_KEY` or `OUT_OF_MEMORY`; after it started,
    * as for `SIGNING_LIMIT`, they hold the attempts made until then.
    */
@@ -547,8 +550,9 @@ export interface PqcWasmModuleOptions {
    * load. As an {@link init} option it makes `init()` load `pqc.wasm` from there
    * instead of compiling the embedded copy, unless `wasmBinary` is set, and
    * returning `undefined` or `null` keeps the default: beside the `moduleUrl`
-   * loader when `moduleUrl` is in effect, and the package's own `pqc.wasm` file
-   * otherwise, as when `createModule` is set and `moduleUrl` is ignored.
+   * loader when `moduleUrl` is in effect and its URL has a directory, and the
+   * package's own `pqc.wasm` file otherwise, as for a `blob:` or `data:`
+   * `moduleUrl`, or when `createModule` is set and `moduleUrl` is ignored.
    */
   locateFile?: (path: string, prefix: string) => string | undefined | null
   /**
@@ -570,8 +574,8 @@ export type PqcWasmModuleFactory = (options?: PqcWasmModuleOptions) => Promise<P
  * Options for {@link init}. Without any, `init()` imports the package's loader
  * and compiles the copy of `pqc.wasm` embedded in `lib/index.mjs`, fetching no
  * file. A call shares the load of the most recent call when its options match
- * that call's (see {@link init} for when they match), and a failed load is not
- * kept for later calls.
+ * that call's (see {@link init} for when they match), even while that load is
+ * still pending; once a load has failed, the next call starts a new one.
  */
 export interface InitOptions extends PqcWasmModuleOptions {
   /**
@@ -816,8 +820,9 @@ async function loadFactory(moduleUrl: string | URL): Promise<PqcWasmModuleFactor
  * Loads the WASM module and publishes a client for the named exports
  * (`keygen`, `sign`, `verify`, ...).
  *
- * Calls with the same options share one load: they return distinct promises
- * that resolve to the same client. Options are the same when `moduleUrl` has
+ * A call whose options match those of the most recent call shares its load:
+ * the calls return distinct promises that resolve to the same client, and a
+ * call with other options starts a new load. Options are the same when `moduleUrl` has
  * the same string form and `createModule`, `locateFile` and `wasmBinary` are
  * the same objects; `init()`, `init(undefined)` and `init({})` are the same.
  * The named exports use the client of the newest call that succeeded: an
