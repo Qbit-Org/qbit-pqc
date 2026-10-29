@@ -18,11 +18,7 @@ function markedWasm(): Buffer {
   const name = Buffer.from(COPY_MARKER)
   // Section id 0 (custom), then the section size and the name length, each a
   // one-byte LEB128 value while the name is shorter than 127 bytes.
-  return Buffer.concat([
-    readFileSync(join(wasmDir, 'pqc.wasm')),
-    Uint8Array.of(0, name.length + 1, name.length),
-    name,
-  ])
+  return Buffer.concat([readFileSync(join(wasmDir, 'pqc.wasm')), Uint8Array.of(0, name.length + 1, name.length), name])
 }
 
 function hasCopyMarker(source: unknown): boolean {

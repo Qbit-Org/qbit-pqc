@@ -347,14 +347,10 @@ const hashPatches: HashPatch[] = [
   [
     '%TypedArray%.prototype.fill (skips zeroing only)',
     called => () =>
-      patchProperty(
-        typedArrayPrototype,
-        'fill',
-        function (this: Uint8Array, value: number, ...range: number[]) {
-          called()
-          return value === 0 ? this : realFill.call(this, value, ...range)
-        }
-      ),
+      patchProperty(typedArrayPrototype, 'fill', function (this: Uint8Array, value: number, ...range: number[]) {
+        called()
+        return value === 0 ? this : realFill.call(this, value, ...range)
+      }),
   ],
   [
     'the %TypedArray%.prototype.length getter (always 0)',
@@ -447,9 +443,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const plain = messageBytes('sign')
 
-      const outcome = underTrap(swapGlobalUint8Array, trap =>
-        victim.sign(pair.secretKey, trap(plain))
-      )
+      const outcome = underTrap(swapGlobalUint8Array, trap => victim.sign(pair.secretKey, trap(plain)))
 
       expect(expectClean(outcome)).toEqual(reference.sign(pair.secretKey, plain))
       expect(fakeUint8ArrayConstructions).toBe(0)
@@ -460,9 +454,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const plain = messageBytes('signWithStats')
 
-      const outcome = underTrap(swapGlobalUint8Array, trap =>
-        victim.signWithStats(pair.secretKey, trap(plain))
-      )
+      const outcome = underTrap(swapGlobalUint8Array, trap => victim.signWithStats(pair.secretKey, trap(plain)))
 
       expect(expectClean(outcome)).toEqual(reference.signWithStats(pair.secretKey, plain))
       expect(fakeUint8ArrayConstructions).toBe(0)
@@ -474,9 +466,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       const signature = reference.sign(pair.secretKey, plain)
       const emptyMessageSignature = reference.sign(pair.secretKey, new Uint8Array(0))
 
-      const accepted = underTrap(swapGlobalUint8Array, trap =>
-        victim.verify(trap(pair.publicKey), plain, signature)
-      )
+      const accepted = underTrap(swapGlobalUint8Array, trap => victim.verify(trap(pair.publicKey), plain, signature))
       expect(expectClean(accepted)).toBe(true)
 
       const rejected = underTrap(swapGlobalUint8Array, trap =>
@@ -500,9 +490,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const seed = syntheticEntropy(0x5e).slice(0, 64)
 
-      const outcome = underTrap(swapGlobalUint8Array, trap =>
-        victim.derivePQCKey(trap(seed), 1, 0, 7)
-      )
+      const outcome = underTrap(swapGlobalUint8Array, trap => victim.derivePQCKey(trap(seed), 1, 0, 7))
 
       expect(expectClean(outcome)).toEqual(reference.derivePQCKey(seed, 1, 0, 7))
       expect(fakeUint8ArrayConstructions).toBe(0)
@@ -512,9 +500,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const leaf = syntheticEntropy(0x5f).slice(0, 32)
 
-      const outcome = underTrap(swapGlobalUint8Array, trap =>
-        victim.deriveP2mrDescriptorKey(trap(leaf), 7)
-      )
+      const outcome = underTrap(swapGlobalUint8Array, trap => victim.deriveP2mrDescriptorKey(trap(leaf), 7))
 
       expect(expectClean(outcome)).toEqual(reference.deriveP2mrDescriptorKey(leaf, 7))
       expect(fakeUint8ArrayConstructions).toBe(0)
@@ -553,9 +539,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       const plain = messageBytes('constants')
       const entropy = syntheticEntropy(0x6f)
 
-      const signed = underTrap(patchConstant('SIG_SIZE', 16), trap =>
-        victim.sign(pair.secretKey, trap(plain))
-      )
+      const signed = underTrap(patchConstant('SIG_SIZE', 16), trap => victim.sign(pair.secretKey, trap(plain)))
       expect(expectClean(signed)).toEqual(reference.sign(pair.secretKey, plain))
 
       const withStats = underTrap(patchConstant('SIG_SIZE', 16), trap =>
@@ -563,9 +547,8 @@ describe('intrinsics used after user code can run are captured at module load', 
       )
       expect(expectClean(withStats)).toEqual(reference.signWithStats(pair.secretKey, plain))
 
-      const generated = underTrap(
-        combine(patchConstant('PK_SIZE', 1), patchConstant('SK_SIZE', 1)),
-        trap => victim.keygen(trap(entropy))
+      const generated = underTrap(combine(patchConstant('PK_SIZE', 1), patchConstant('SK_SIZE', 1)), trap =>
+        victim.keygen(trap(entropy))
       )
       expect(expectClean(generated)).toEqual(reference.keygen(entropy))
       expect(constants.SIG_SIZE).toBe(3680)
@@ -638,9 +621,7 @@ describe('intrinsics used after user code can run are captured at module load', 
 
       // A native BAD_ARG still throws rather than reading as a bad signature.
       victimModule._qbit_pqc_verify = () => badArg
-      const failed = underTrap(badSignatureReadsAsBadArg, trap =>
-        victim.verify(trap(pair.publicKey), plain, signature)
-      )
+      const failed = underTrap(badSignatureReadsAsBadArg, trap => victim.verify(trap(pair.publicKey), plain, signature))
       expect(failed.trapCalls).toBe(0)
       expect(failed.error).toBeInstanceOf(PqcError)
       expect((failed.error as PqcError).kind).toBe('BAD_ARG')
@@ -654,16 +635,12 @@ describe('intrinsics used after user code can run are captured at module load', 
       const badArg = errorCodes.BITCOIN_PQC_ERROR_BAD_ARG
       const badKeyReadsAsBadArg = patchErrorCode('BITCOIN_PQC_ERROR_BAD_KEY', badArg)
 
-      const rejected = underTrap(badKeyReadsAsBadArg, trap =>
-        victim.secretKeyValidate(trap(inconsistentKey))
-      )
+      const rejected = underTrap(badKeyReadsAsBadArg, trap => victim.secretKeyValidate(trap(inconsistentKey)))
       expect(expectClean(rejected)).toBe(false)
 
       // A native BAD_ARG still throws rather than reading as a bad key.
       victimModule._qbit_pqc_secret_key_validate = () => badArg
-      const failed = underTrap(badKeyReadsAsBadArg, trap =>
-        victim.secretKeyValidate(trap(pair.secretKey))
-      )
+      const failed = underTrap(badKeyReadsAsBadArg, trap => victim.secretKeyValidate(trap(pair.secretKey)))
       expect(failed.trapCalls).toBe(0)
       expect(failed.error).toBeInstanceOf(PqcError)
       expect((failed.error as PqcError).kind).toBe('BAD_ARG')
@@ -695,8 +672,7 @@ describe('intrinsics used after user code can run are captured at module load', 
             }),
           ...realArrayFrom(
             { length: constants.WOTSC_LAYERS },
-            (_, index) => () =>
-              patchAccessor(Array.prototype, index, { get: counted, set: counted })
+            (_, index) => () => patchAccessor(Array.prototype, index, { get: counted, set: counted })
           )
         ),
         trap => {
@@ -786,10 +762,7 @@ describe('intrinsics used after user code can run are captured at module load', 
     // non-zero byte in any array it allocated other than the key it returned
     // and views on the caller's masterSeed or on wasm memory (which the
     // secret-residue tests cover).
-    function deriveCoreVectors(
-      install: Install,
-      beforeCall?: (masterSeed: Uint8Array) => void
-    ): void {
+    function deriveCoreVectors(install: Install, beforeCall?: (masterSeed: Uint8Array) => void): void {
       for (const vector of derivationVectors) {
         const { account, change, index } = vector.hkdf
         const seed = hexBytes(vector.masterSeedHex)
@@ -825,21 +798,18 @@ describe('intrinsics used after user code can run are captured at module load', 
       }
     }
 
-    it.each(hashPatches)(
-      'derives qbit Core keys and zeroes its buffers with %s patched',
-      async (_name, patch) => {
-        await recordingVictim()
-        let calls = 0
+    it.each(hashPatches)('derives qbit Core keys and zeroes its buffers with %s patched', async (_name, patch) => {
+      await recordingVictim()
+      let calls = 0
 
-        deriveCoreVectors(
-          patch(() => {
-            calls += 1
-          })
-        )
+      deriveCoreVectors(
+        patch(() => {
+          calls += 1
+        })
+      )
 
-        expect(calls).toBe(0)
-      }
-    )
+      expect(calls).toBe(0)
+    })
 
     it('never runs a length getter that would detach masterSeed and patch the hash mid-call', async () => {
       await recordingVictim()

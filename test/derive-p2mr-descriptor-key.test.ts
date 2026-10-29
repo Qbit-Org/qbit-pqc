@@ -37,8 +37,7 @@ function patternBytes(length: number, seed: number): Uint8Array {
 function leadingZeroLeafVector(): DerivationVector {
   const vector = (derivationFixture.vectors as DerivationVector[]).find(
     candidate =>
-      candidate.coreBehavior === 'canonical_descriptor_generation' &&
-      candidate.masterSeedHex.startsWith('00')
+      candidate.coreBehavior === 'canonical_descriptor_generation' && candidate.masterSeedHex.startsWith('00')
   )
   if (vector === undefined) {
     throw new Error('derivation fixture has no leaf key with a leading zero byte')
@@ -114,11 +113,14 @@ describe('deriveP2mrDescriptorKey', () => {
     const invalid: Array<[string, Uint8Array]> = [
       ['zero (a wiped buffer)', new Uint8Array(32)],
       ['n', order],
-      ['n + 1', (() => {
-        const out = order.slice()
-        out[31] = out[31]! + 1
-        return out
-      })()],
+      [
+        'n + 1',
+        (() => {
+          const out = order.slice()
+          out[31] = out[31]! + 1
+          return out
+        })(),
+      ],
       ['all 0xff', new Uint8Array(32).fill(0xff)],
     ]
     for (const [label, leaf] of invalid) {

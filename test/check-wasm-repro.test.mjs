@@ -17,9 +17,7 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const PINNED_IMAGE = /EMSDK_IMAGE:-"([^"]+)"/.exec(
-  readFileSync(join(repoRoot, 'scripts', 'build-wasm.sh'), 'utf8')
-)[1]
+const PINNED_IMAGE = /EMSDK_IMAGE:-"([^"]+)"/.exec(readFileSync(join(repoRoot, 'scripts', 'build-wasm.sh'), 'utf8'))[1]
 
 // Stands in for emcc: answers --version, and otherwise copies prebuilt
 // artifacts from $FAKE_EMCC_SRC (if set) to the directory of the `-o` target,
@@ -113,7 +111,7 @@ function runScript(repo, script, env = {}) {
 
 const runRepro = (repo, env) => runScript(repo, 'check-wasm-repro.sh', env)
 const runBuild = (repo, env) => runScript(repo, 'build-wasm.sh', env)
-const calls = (repo) => readFileSync(repo.log, 'utf8')
+const calls = repo => readFileSync(repo.log, 'utf8')
 
 beforeEach(() => {
   work = mkdtempSync(join(tmpdir(), 'qbit-pqc-repro-test-'))
@@ -137,7 +135,7 @@ describe('check-wasm-repro.sh', () => {
     expect(result.stdout).toMatch(/reproducible WASM hash check passed\n$/)
     const inspections = calls(repo)
       .split('\n')
-      .filter((line) => line.startsWith('docker image inspect '))
+      .filter(line => line.startsWith('docker image inspect '))
     expect(inspections).toHaveLength(1)
     expect(inspections[0].endsWith(` ${PINNED_IMAGE}`)).toBe(true)
   })
@@ -158,7 +156,7 @@ describe('check-wasm-repro.sh', () => {
     expect(existsSync(join(repo.root, '.context'))).toBe(false)
   })
 
-  it.each(['', '0', 'true'])('keeps refusing when QBIT_PQC_REPRO_ALLOW_OVERRIDES is %j', (optIn) => {
+  it.each(['', '0', 'true'])('keeps refusing when QBIT_PQC_REPRO_ALLOW_OVERRIDES is %j', optIn => {
     const repo = stageRepo()
     const result = runRepro(repo, {
       USE_LOCAL_EMCC: '1',
@@ -190,9 +188,7 @@ describe('check-wasm-repro.sh', () => {
 
     expect(result.status, result.stderr).toBe(0)
     expect(result.stdout).toContain('emcc (fake) 4.0.10\n')
-    expect(result.stdout).toContain(
-      'reproducible WASM hash check passed with build overrides: USE_LOCAL_EMCC=1\n'
-    )
+    expect(result.stdout).toContain('reproducible WASM hash check passed with build overrides: USE_LOCAL_EMCC=1\n')
     expect(calls(repo)).not.toContain('docker')
     expect(readdirSync(repo.tmp)).toEqual([])
   })
@@ -225,7 +221,7 @@ describe('check-wasm-repro.sh', () => {
 
     expect(result.status).toBe(1)
     expect(result.stdout).not.toContain('reproducible WASM hash check passed')
-    const headers = result.stdout.split('\n').filter((line) => /^(---|\+\+\+) /.test(line))
+    const headers = result.stdout.split('\n').filter(line => /^(---|\+\+\+) /.test(line))
     expect(headers).toHaveLength(2)
     const tmpPrefix = repo.tmp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     for (const header of headers) {
@@ -278,9 +274,7 @@ describe('build-wasm.sh', () => {
     const repo = stageRepo()
     const out = join(repo.root, 'out')
     cpSync(repo.committed, out, { recursive: true })
-    const before = Object.fromEntries(
-      readdirSync(out).map(name => [name, readFileSync(join(out, name), 'utf8')])
-    )
+    const before = Object.fromEntries(readdirSync(out).map(name => [name, readFileSync(join(out, name), 'utf8')]))
 
     const result = runBuild(repo, { OUT_DIR: 'out' })
 

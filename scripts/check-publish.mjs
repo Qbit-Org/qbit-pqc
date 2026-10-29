@@ -86,10 +86,7 @@ function runPnpmScript(root, script) {
 
 // Returns the reasons not to publish the package at `root`. `runScript(name)`
 // runs a package script and returns whether it passed.
-export function checkPublish(
-  root,
-  { env = process.env, runScript = script => runPnpmScript(root, script) } = {}
-) {
+export function checkPublish(root, { env = process.env, runScript = script => runPnpmScript(root, script) } = {}) {
   const errors = []
   const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 

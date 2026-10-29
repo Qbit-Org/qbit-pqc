@@ -110,9 +110,9 @@ describe('leftover reference scanner', () => {
     expect(findLeftovers('cache in .context/repro.')).toEqual([
       { line: 1, rule: 'machine-local .context path', match: '.context/repro' },
     ])
-    expect(findLeftovers('"coreReference": ".context/repos/qbit/src/crypto/pqc.cpp:137-199"')).toEqual(
-      [{ line: 1, rule: 'machine-local .context path', match: '.context/repos/qbit/src/crypto/pqc.cpp:137-199' }]
-    )
+    expect(findLeftovers('"coreReference": ".context/repos/qbit/src/crypto/pqc.cpp:137-199"')).toEqual([
+      { line: 1, rule: 'machine-local .context path', match: '.context/repos/qbit/src/crypto/pqc.cpp:137-199' },
+    ])
   })
 })
 
@@ -161,9 +161,7 @@ describe('published docs and fixtures', () => {
   })
 
   it('pins the qbit Core reference to the fixture source commit', () => {
-    const { source } = JSON.parse(
-      readFileSync(join(repoRoot, 'fixtures/qbit-core-derivation.json'), 'utf8')
-    )
+    const { source } = JSON.parse(readFileSync(join(repoRoot, 'fixtures/qbit-core-derivation.json'), 'utf8'))
     const match = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/blob\/([0-9a-f]{40})\/(\S+)#L(\d+)-L(\d+)$/.exec(
       source.coreReference
     )

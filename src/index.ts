@@ -23,10 +23,7 @@ const IntrinsicObjectPrototype = Object.prototype
 const { from: arrayFrom } = Array
 const { ceil: mathCeil, floor: mathFloor } = Math
 const { isFinite: numberIsFinite, isInteger: numberIsInteger } = Number
-const {
-  getOwnPropertyDescriptor: objectGetOwnPropertyDescriptor,
-  getPrototypeOf: objectGetPrototypeOf,
-} = Object
+const { getOwnPropertyDescriptor: objectGetOwnPropertyDescriptor, getPrototypeOf: objectGetPrototypeOf } = Object
 const { ownKeys: reflectOwnKeys } = Reflect
 const objectHasOwn = Function.prototype.call.bind(Object.prototype.hasOwnProperty) as (
   object: object,
@@ -59,8 +56,8 @@ const P2MR_LEAF_KEY_SIZE = 32
 const P2MR_RANGE_INDEX_MAX = 0x7fffffff
 // secp256k1's group order n, big-endian.
 const SECP256K1_ORDER = new IntrinsicUint8Array([
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe,
-  0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c, 0xd0, 0x36, 0x41, 0x41,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xba, 0xae, 0xdc,
+  0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c, 0xd0, 0x36, 0x41, 0x41,
 ])
 
 const SHA256_INITIAL_STATE = new IntrinsicUint32Array([
@@ -68,14 +65,14 @@ const SHA256_INITIAL_STATE = new IntrinsicUint32Array([
 ])
 
 const SHA256_K = new IntrinsicUint32Array([
-  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98,
+  0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+  0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8,
+  0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+  0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819,
+  0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+  0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
+  0xc67178f2,
 ])
 
 // %TypedArray% intrinsics captured when the module loads. Every byte argument
@@ -93,18 +90,13 @@ const typedArrayByteOffset = uncurryTypedArrayGetter<number>('byteOffset')
 const typedArrayByteLength = uncurryTypedArrayGetter<number>('byteLength')
 const typedArrayValues = uncurryTypedArrayMethod<[]>('values')
 const typedArraySet = uncurryTypedArrayMethod<[source: Uint8Array, offset: number]>('set')
-const typedArrayFill = uncurryTypedArrayMethod<
-  [value: number, start?: number, end?: number],
-  Uint8Array | Uint32Array
->('fill')
-const dataViewGetUint32 = uncurryDataViewMethod<
-  [byteOffset: number, littleEndian: boolean],
-  number
->('getUint32')
-const dataViewSetUint32 = uncurryDataViewMethod<
-  [byteOffset: number, value: number, littleEndian: boolean],
-  undefined
->('setUint32')
+const typedArrayFill = uncurryTypedArrayMethod<[value: number, start?: number, end?: number], Uint8Array | Uint32Array>(
+  'fill'
+)
+const dataViewGetUint32 = uncurryDataViewMethod<[byteOffset: number, littleEndian: boolean], number>('getUint32')
+const dataViewSetUint32 = uncurryDataViewMethod<[byteOffset: number, value: number, littleEndian: boolean], undefined>(
+  'setUint32'
+)
 
 function uncurryTypedArrayGetter<T, V = Uint8Array>(
   key: 'length' | 'buffer' | 'byteOffset' | 'byteLength' | typeof Symbol.toStringTag
@@ -299,19 +291,14 @@ export class PqcLoadError extends PqcError {
   readonly status: number | undefined
   declare readonly cause: unknown
 
-  constructor(
-    url: string | undefined,
-    status: number | undefined,
-    options: { cause?: unknown } = {}
-  ) {
+  constructor(url: string | undefined, status: number | undefined, options: { cause?: unknown } = {}) {
     super('init', OK)
     this.name = 'PqcLoadError'
     this.kind = 'LOAD_FAILED'
     const httpStatus = status === undefined ? '' : ` (HTTP ${status})`
     const reason = causeReason(options.cause)
     this.message =
-      `init() could not load ${url ?? 'the WASM module'}${httpStatus}` +
-      (reason === '' ? '' : `: ${reason}`)
+      `init() could not load ${url ?? 'the WASM module'}${httpStatus}` + (reason === '' ? '' : `: ${reason}`)
     this.url = url
     this.status = status
     Object.defineProperty(this, 'cause', {
@@ -343,19 +330,9 @@ export interface PqcWasmModule {
   _qbit_pqc_secret_key_size(): number
   _qbit_pqc_signature_size(): number
   _qbit_pqc_keygen_entropy_min_size(): number
-  _qbit_pqc_keygen(
-    publicKeyOut: number,
-    secretKeyOut: number,
-    entropy: number,
-    entropyLength: number
-  ): number
+  _qbit_pqc_keygen(publicKeyOut: number, secretKeyOut: number, entropy: number, entropyLength: number): number
   _qbit_pqc_secret_key_validate(secretKey: number, secretKeyLength: number): number
-  _qbit_pqc_sign(
-    signatureOut: number,
-    secretKey: number,
-    message: number,
-    messageLength: number
-  ): number
+  _qbit_pqc_sign(signatureOut: number, secretKey: number, message: number, messageLength: number): number
   _qbit_pqc_sign_with_stats(
     signatureOut: number,
     statsOut: number,
@@ -401,12 +378,7 @@ export interface PqcClient {
    * importing the wallet's descriptor into Core never finds. Derive wallet keys
    * with {@link PqcClient.deriveP2mrDescriptorKey}.
    */
-  derivePQCKey(
-    masterSeed: Uint8Array,
-    hkdfAccount: number,
-    hkdfChange: number,
-    hkdfIndex: number
-  ): PqcDerivedKey
+  derivePQCKey(masterSeed: Uint8Array, hkdfAccount: number, hkdfChange: number, hkdfIndex: number): PqcDerivedKey
   /**
    * The P2MR key qbit Core's descriptor wallet derives for a `pqc(...)` key
    * (`P2MRPubkeyProvider::GetPubKey`): `derivePQCKey(leafPrivateKey, 0, 0,
@@ -438,11 +410,7 @@ export interface PqcClient {
    */
   sign(sk: Uint8Array, msg: Uint8Array, options?: PqcMessageOptions): Uint8Array
   /** {@link PqcClient.sign}, also returning the native signing stats. */
-  signWithStats(
-    sk: Uint8Array,
-    msg: Uint8Array,
-    options?: PqcMessageOptions
-  ): PqcSignWithStatsResult
+  signWithStats(sk: Uint8Array, msg: Uint8Array, options?: PqcMessageOptions): PqcSignWithStatsResult
   /**
    * Returns true when `sig` is a valid signature of `msg` under `pk`, and
    * false for any other bytes, including a `pk` that is not
@@ -646,9 +614,7 @@ async function loadClient(options: InitOptions): Promise<PqcClient> {
     // without 'wasm-unsafe-eval' stops the embedded copy compiling; or the
     // check that the module matches this package. Only the steps that know
     // which file failed throw a PqcLoadError themselves.
-    throw error instanceof PqcLoadError
-      ? error
-      : new PqcLoadError(undefined, undefined, { cause: error })
+    throw error instanceof PqcLoadError ? error : new PqcLoadError(undefined, undefined, { cause: error })
   }
 }
 
@@ -657,23 +623,16 @@ async function loadModule(options: InitOptions): Promise<PqcWasmModule> {
   // createModule takes precedence over moduleUrl.
   const fromModuleUrl = createModule === undefined && moduleUrl !== undefined
   const moduleFactory =
-    createModule ??
-    (moduleUrl === undefined ? await loadPackageFactory() : await loadFactory(moduleUrl))
+    createModule ?? (moduleUrl === undefined ? await loadPackageFactory() : await loadFactory(moduleUrl))
   // Unless the caller says where pqc.wasm is (moduleUrl, locateFile) or passes
   // its bytes, the embedded copy is used: nothing is fetched, and no bundler
   // has to emit or serve pqc.wasm.
-  const bytes =
-    wasmBinary ??
-    (locateFile === undefined && !fromModuleUrl ? await packageWasmBytes() : undefined)
+  const bytes = wasmBinary ?? (locateFile === undefined && !fromModuleUrl ? await packageWasmBytes() : undefined)
   // A custom locateFile that returns undefined or null defers to the default:
   // beside the loader when moduleUrl named one, so the loader and the binary
   // come from the same copy, and the package's own copy otherwise. With the
   // bytes in hand, the factory loads no file, whatever the location.
-  const locateDefault = fromModuleUrl
-    ? locateBesideModule
-    : bytes === undefined
-      ? packageFileUrl
-      : locateUnloaded
+  const locateDefault = fromModuleUrl ? locateBesideModule : bytes === undefined ? packageFileUrl : locateUnloaded
   // Where the factory loads pqc.wasm from, when it has no bytes.
   let wasmUrl: string | undefined
   const moduleOptions: PqcWasmModuleOptions = {
@@ -743,11 +702,7 @@ function createPqcClient(module: PqcWasmModule): PqcClient {
         hkdfIndex
       ),
     deriveP2mrDescriptorKey: (leafPrivateKey, rangeIndex) =>
-      deriveP2mrDescriptorKeyWithKeygen(
-        entropy => keygenWithModule(module, entropy),
-        leafPrivateKey,
-        rangeIndex
-      ),
+      deriveP2mrDescriptorKeyWithKeygen(entropy => keygenWithModule(module, entropy), leafPrivateKey, rangeIndex),
     sign: (sk, msg, options) => signWithModule(module, sk, msg, options),
     signWithStats: (sk, msg, options) => signWithStatsWithModule(module, sk, msg, options),
     verify: (pk, msg, sig, options) => verifyWithModule(module, pk, msg, sig, options),
@@ -809,12 +764,7 @@ export function derivePQCKey(
   hkdfChange: number,
   hkdfIndex: number
 ): PqcDerivedKey {
-  return getActiveClient('derivePQCKey').derivePQCKey(
-    masterSeed,
-    hkdfAccount,
-    hkdfChange,
-    hkdfIndex
-  )
+  return getActiveClient('derivePQCKey').derivePQCKey(masterSeed, hkdfAccount, hkdfChange, hkdfIndex)
 }
 
 /**
@@ -822,14 +772,8 @@ export function derivePQCKey(
  * `init()`: the P2MR key qbit Core's descriptor wallet derives from a 32-byte
  * BIP32 leaf private key at a non-hardened range position.
  */
-export function deriveP2mrDescriptorKey(
-  leafPrivateKey: Uint8Array,
-  rangeIndex: number
-): PqcDerivedKey {
-  return getActiveClient('deriveP2mrDescriptorKey').deriveP2mrDescriptorKey(
-    leafPrivateKey,
-    rangeIndex
-  )
+export function deriveP2mrDescriptorKey(leafPrivateKey: Uint8Array, rangeIndex: number): PqcDerivedKey {
+  return getActiveClient('deriveP2mrDescriptorKey').deriveP2mrDescriptorKey(leafPrivateKey, rangeIndex)
 }
 
 /**
@@ -844,11 +788,7 @@ export function sign(sk: Uint8Array, msg: Uint8Array, options?: PqcMessageOption
  * {@link PqcClient.signWithStats} on the client from the last `init()`, with
  * the same message size limit as {@link sign}.
  */
-export function signWithStats(
-  sk: Uint8Array,
-  msg: Uint8Array,
-  options?: PqcMessageOptions
-): PqcSignWithStatsResult {
+export function signWithStats(sk: Uint8Array, msg: Uint8Array, options?: PqcMessageOptions): PqcSignWithStatsResult {
   return getActiveClient('signWithStats').signWithStats(sk, msg, options)
 }
 
@@ -857,12 +797,7 @@ export function signWithStats(
  * results and errors. Also throws a PqcError with kind `'NOT_INITIALIZED'`
  * when no `init()` call has succeeded yet.
  */
-export function verify(
-  pk: Uint8Array,
-  msg: Uint8Array,
-  sig: Uint8Array,
-  options?: PqcMessageOptions
-): boolean {
+export function verify(pk: Uint8Array, msg: Uint8Array, sig: Uint8Array, options?: PqcMessageOptions): boolean {
   return getActiveClient('verify').verify(pk, msg, sig, options)
 }
 
@@ -1234,12 +1169,7 @@ function deriveKeyFromSeed(
   }
 }
 
-function derivePQCKeygenEntropy(
-  masterSeed: Uint8Array,
-  account: number,
-  change: number,
-  index: number
-): Uint8Array {
+function derivePQCKeygenEntropy(masterSeed: Uint8Array, account: number, change: number, index: number): Uint8Array {
   const prk = hmacSha256(DERIVE_PQC_HKDF_SALT, masterSeed)
   const prefixLength = typedArrayLength(DERIVE_PQC_HKDF_INFO_PREFIX)
   const info = new IntrinsicUint8Array(prefixLength + 12)
@@ -1324,11 +1254,7 @@ function hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array {
 
 // A DataView on exactly the bytes of `bytes`, from the intrinsic getters.
 function dataViewOf(bytes: Uint8Array): DataView {
-  return new IntrinsicDataView(
-    typedArrayBuffer(bytes),
-    typedArrayByteOffset(bytes),
-    typedArrayByteLength(bytes)
-  )
+  return new IntrinsicDataView(typedArrayBuffer(bytes), typedArrayByteOffset(bytes), typedArrayByteLength(bytes))
 }
 
 function sha256(message: Uint8Array): Uint8Array {
@@ -1351,12 +1277,7 @@ function sha256(message: Uint8Array): Uint8Array {
       words[i] = dataViewGetUint32(view, offset + i * 4, false)
     }
     for (let i = 16; i < 64; i += 1) {
-      words[i] =
-        (smallSigma1(words[i - 2]!) +
-          words[i - 7]! +
-          smallSigma0(words[i - 15]!) +
-          words[i - 16]!) >>>
-        0
+      words[i] = (smallSigma1(words[i - 2]!) + words[i - 7]! + smallSigma0(words[i - 15]!) + words[i - 16]!) >>> 0
     }
 
     let a = state[0]!
@@ -1543,13 +1464,7 @@ function signWithStatsWithModule(
     signaturePtr = malloc(module, SIG_SIZE)
     statsPtr = malloc(module, SIGN_STATS_BYTES)
 
-    const rc = module._qbit_pqc_sign_with_stats(
-      signaturePtr,
-      statsPtr,
-      secretKeyPtr,
-      messagePtr,
-      msgIn.length
-    )
+    const rc = module._qbit_pqc_sign_with_stats(signaturePtr, statsPtr, secretKeyPtr, messagePtr, msgIn.length)
     const stats = readStats(module, statsPtr)
     if (rc !== OK) {
       throwNativeError('signWithStats', rc, { stats })
@@ -1574,11 +1489,7 @@ function signWithStatsWithModule(
 
 function readStats(module: PqcWasmModule, statsPtr: number): PqcSignStats {
   const bytes = heapView(module, statsPtr, SIGN_STATS_BYTES)
-  const raw = new IntrinsicUint32Array(
-    typedArrayBuffer(bytes),
-    typedArrayByteOffset(bytes),
-    SIGN_STATS_WORDS
-  )
+  const raw = new IntrinsicUint32Array(typedArrayBuffer(bytes), typedArrayByteOffset(bytes), SIGN_STATS_WORDS)
   // Array.from called without a receiver creates a plain array and defines
   // each element on it, and this null-prototype array-like has no iterator or
   // inherited element to look up. Iterating `raw`, or storing into an array by
@@ -1613,11 +1524,7 @@ function verifyWithModule(
   // 32-byte sighashes, and copying a large msg grows the wasm heap for the
   // instance's lifetime. Decided on the pinned lengths before any wasm
   // allocation, so an oversized input costs no copy.
-  if (
-    pkIn.length !== PK_SIZE ||
-    sigIn.length !== SIG_SIZE ||
-    exceedsMessageSize(msgIn, allowLargeMessage)
-  ) {
+  if (pkIn.length !== PK_SIZE || sigIn.length !== SIG_SIZE || exceedsMessageSize(msgIn, allowLargeMessage)) {
     return false
   }
 
@@ -1632,13 +1539,7 @@ function verifyWithModule(
     }
     signaturePtr = copyIn(module, sigIn)
 
-    const rc = module._qbit_pqc_verify(
-      publicKeyPtr,
-      messagePtr,
-      msgIn.length,
-      signaturePtr,
-      sigIn.length
-    )
+    const rc = module._qbit_pqc_verify(publicKeyPtr, messagePtr, msgIn.length, signaturePtr, sigIn.length)
     if (rc === OK) {
       return true
     }

@@ -77,17 +77,24 @@ entry in the package's `wasm/SHA256SUMS`.
 ## CI Commands
 
 The package-focused CI workflow's `verify` job installs only from
-`pnpm-lock.yaml` and runs the integrity gates:
+`pnpm-lock.yaml` and runs the integrity gates; `.github/workflows/ci.yml` in
+the repository is the authoritative list:
 
 ```sh
+pnpm format:check
 pnpm build
 pnpm test
 pnpm typecheck
+pnpm check:vendor --upstream <shallow fetch of the pinned upstream commit>
 pnpm check:wasm
 pnpm check:wasm:repro
 pnpm pack:check
 pnpm smoke:consumer
 ```
+
+`pnpm verify` runs the same steps except the two that download something:
+`check:vendor` checks against `MANIFEST` only, and `check:wasm:repro` is
+skipped.
 
 A separate `mv3-smoke` job installs the pinned Chrome for Testing build with the
 locked `@puppeteer/browsers` devDependency, then runs the MV3 smoke:

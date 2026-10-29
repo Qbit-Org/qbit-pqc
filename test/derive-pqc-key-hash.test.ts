@@ -28,20 +28,14 @@ const LENGTHS = [...Array.from({ length: 201 }, (_, length) => length), 2 ** 16 
 interface HashInternals {
   sha256(message: Uint8Array): Uint8Array
   hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array
-  derivePQCKeygenEntropy(
-    masterSeed: Uint8Array,
-    account: number,
-    change: number,
-    index: number
-  ): Uint8Array
+  derivePQCKeygenEntropy(masterSeed: Uint8Array, account: number, change: number, index: number): Uint8Array
 }
 
 async function loadHashInternals(): Promise<HashInternals> {
   const source = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
-  const { outputText } = ts.transpileModule(
-    `${source}\nexport { sha256, hmacSha256, derivePQCKeygenEntropy }\n`,
-    { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }
-  )
+  const { outputText } = ts.transpileModule(`${source}\nexport { sha256, hmacSha256, derivePQCKeygenEntropy }\n`, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+  })
   const url = `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
   return (await import(/* @vite-ignore */ url)) as HashInternals
 }
@@ -60,12 +54,7 @@ function pathFor(length: number): [account: number, change: number, index: numbe
   return [length, length & 1, Math.imul(length + 1, 0x9e3779b9) >>> 0]
 }
 
-function hkdfEntropy(
-  masterSeed: Uint8Array,
-  account: number,
-  change: number,
-  index: number
-): Uint8Array {
+function hkdfEntropy(masterSeed: Uint8Array, account: number, change: number, index: number): Uint8Array {
   const info = Buffer.alloc(HKDF_INFO_PREFIX.length + 12)
   HKDF_INFO_PREFIX.copy(info)
   info.writeUInt32LE(account, HKDF_INFO_PREFIX.length)

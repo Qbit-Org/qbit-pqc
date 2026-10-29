@@ -1,11 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
-import {
-  constants,
-  type PqcClient,
-  type PqcKeyPair,
-  type PqcWasmModule,
-} from '../src/index'
+import { constants, type PqcClient, type PqcKeyPair, type PqcWasmModule } from '../src/index'
 import { freshClient } from './fresh-client'
 
 // Follow-up regression coverage for detached inputs. The entry check added
@@ -108,9 +103,7 @@ let blocksBeforeGrowth: Promise<number> | undefined
 const fillsBeforeGrowth = new Map<number, Promise<number>>()
 
 function calibrateGrowth(size: number): Promise<{ blocks: number; fills: number }> {
-  blocksBeforeGrowth ??= freshClient().then(probe =>
-    countMallocsBeforeGrowth(probe.module, BLOCK_BYTES)
-  )
+  blocksBeforeGrowth ??= freshClient().then(probe => countMallocsBeforeGrowth(probe.module, BLOCK_BYTES))
   let fills = fillsBeforeGrowth.get(size)
   if (fills === undefined) {
     fills = (async () => {
@@ -134,10 +127,7 @@ interface GrowthFixture {
 // Returns a fresh client whose next `_malloc(nextMallocSize)` grows the wasm
 // memory (detaching every existing view into its module's `HEAPU8`), plus a
 // message stored inside that heap.
-async function clientWhoseNextMallocGrows(
-  nextMallocSize: number,
-  label: string
-): Promise<GrowthFixture> {
+async function clientWhoseNextMallocGrows(nextMallocSize: number, label: string): Promise<GrowthFixture> {
   const { blocks, fills } = await calibrateGrowth(nextMallocSize)
   expect(blocks).toBeGreaterThan(0)
   const { client, module } = await freshClient()
@@ -169,10 +159,7 @@ describe('length re-reads after validation (TOCTOU)', () => {
   describe('D1: msg is a view into the wasm heap that memory growth detaches mid-call', () => {
     it('verify throws instead of accepting an empty-message signature', async () => {
       // verify's first copy is pk, so its malloc(PK_SIZE) is the one that grows.
-      const { client: victim, msg, plain } = await clientWhoseNextMallocGrows(
-        constants.PK_SIZE,
-        'verify'
-      )
+      const { client: victim, msg, plain } = await clientWhoseNextMallocGrows(constants.PK_SIZE, 'verify')
       const heapBefore = victim.wasmHeapBytes()
 
       const error = errorFrom(() => victim.verify(pair.publicKey, msg, emptyMessageSignature))
@@ -189,10 +176,7 @@ describe('length re-reads after validation (TOCTOU)', () => {
 
     it('sign throws instead of signing the empty message', async () => {
       // sign's first copy is sk, so its malloc(SK_SIZE) is the one that grows.
-      const { client: victim, msg, plain } = await clientWhoseNextMallocGrows(
-        constants.SK_SIZE,
-        'sign'
-      )
+      const { client: victim, msg, plain } = await clientWhoseNextMallocGrows(constants.SK_SIZE, 'sign')
 
       const error = errorFrom(() => victim.sign(pair.secretKey, msg))
 
@@ -203,10 +187,7 @@ describe('length re-reads after validation (TOCTOU)', () => {
     })
 
     it('signWithStats throws instead of signing the empty message', async () => {
-      const { client: victim, msg } = await clientWhoseNextMallocGrows(
-        constants.SK_SIZE,
-        'signWithStats'
-      )
+      const { client: victim, msg } = await clientWhoseNextMallocGrows(constants.SK_SIZE, 'signWithStats')
 
       const error = errorFrom(() => victim.signWithStats(pair.secretKey, msg))
 
@@ -216,10 +197,7 @@ describe('length re-reads after validation (TOCTOU)', () => {
     })
 
     it('keygen throws when its entropy lives in the heap it grows', async () => {
-      const { client: victim, module, msg: scratch } = await clientWhoseNextMallocGrows(
-        constants.MIN_ENTROPY,
-        'keygen'
-      )
+      const { client: victim, module, msg: scratch } = await clientWhoseNextMallocGrows(constants.MIN_ENTROPY, 'keygen')
       // Overwrite the fixture's message with the entropy; same heap, same growth.
       const start = scratch.byteOffset
       module.HEAPU8.set(syntheticEntropy(0x19), start)
@@ -247,15 +225,11 @@ describe('length re-reads after validation (TOCTOU)', () => {
       }
       const realSignature = client.sign(pair.secretKey, plain)
 
-      expect(client.verify(pair.publicKey, msg, new DetachingLength(emptyMessageSignature))).toBe(
-        false
-      )
+      expect(client.verify(pair.publicKey, msg, new DetachingLength(emptyMessageSignature))).toBe(false)
       expect(client.verify(pair.publicKey, msg, new DetachingLength(realSignature))).toBe(true)
       expect(client.verify(new DetachingLength(pair.publicKey), msg, realSignature)).toBe(true)
       expect(client.sign(new DetachingLength(pair.secretKey), msg)).toEqual(realSignature)
-      expect(client.signWithStats(new DetachingLength(pair.secretKey), msg).sig).toEqual(
-        realSignature
-      )
+      expect(client.signWithStats(new DetachingLength(pair.secretKey), msg).sig).toEqual(realSignature)
       expect(getterCalls).toBe(0)
       expect(msg.length).toBe(plain.length)
     })
@@ -285,9 +259,7 @@ describe('length re-reads after validation (TOCTOU)', () => {
 
       expect(client.verify(pair.publicKey, msg, sigOverGetter)).toBe(false)
       expect(client.verify(pair.publicKey, msg, sigOverSubclassBuffer)).toBe(false)
-      expect(client.verify(pair.publicKey, msg, new DetachingBufferGetter(realSignature))).toBe(
-        true
-      )
+      expect(client.verify(pair.publicKey, msg, new DetachingBufferGetter(realSignature))).toBe(true)
       expect(accessorCalls).toBe(0)
       expect(msg.length).toBe(plain.length)
     })
@@ -302,12 +274,8 @@ describe('length re-reads after validation (TOCTOU)', () => {
 
       expect(signature).toEqual(realSignature)
       expect(signature).not.toEqual(emptyMessageSignature)
-      expect(client.signWithStats(pair.secretKey, withReportedLength(plain, 0)).sig).toEqual(
-        realSignature
-      )
-      expect(
-        client.verify(pair.publicKey, withReportedLength(plain, 0), emptyMessageSignature)
-      ).toBe(false)
+      expect(client.signWithStats(pair.secretKey, withReportedLength(plain, 0)).sig).toEqual(realSignature)
+      expect(client.verify(pair.publicKey, withReportedLength(plain, 0), emptyMessageSignature)).toBe(false)
       expect(client.verify(pair.publicKey, withReportedLength(plain, 0), realSignature)).toBe(true)
     })
 
@@ -362,12 +330,8 @@ describe('length re-reads after validation (TOCTOU)', () => {
       const expected = client.derivePQCKey(seed, 0, 0, 0)
 
       expect(client.derivePQCKey(withReportedLength(seed, 0), 0, 0, 0)).toEqual(expected)
-      expect(client.derivePQCKey(withReportedLength(seed, seed.length + 100), 0, 0, 0)).toEqual(
-        expected
-      )
-      expect(() => client.derivePQCKey(withReportedLength(new Uint8Array(0), 5), 0, 0, 0)).toThrow(
-        RangeError
-      )
+      expect(client.derivePQCKey(withReportedLength(seed, seed.length + 100), 0, 0, 0)).toEqual(expected)
+      expect(() => client.derivePQCKey(withReportedLength(new Uint8Array(0), 5), 0, 0, 0)).toThrow(RangeError)
     })
 
     it('deriveP2mrDescriptorKey checks the real leafPrivateKey length', () => {
@@ -377,9 +341,7 @@ describe('length re-reads after validation (TOCTOU)', () => {
 
       expect(client.deriveP2mrDescriptorKey(withReportedLength(leaf, 31), 0)).toEqual(expected)
       expect(() => client.deriveP2mrDescriptorKey(shortLeaf, 0)).toThrow(RangeError)
-      expect(() => client.deriveP2mrDescriptorKey(shortLeaf, 0)).toThrow(
-        'leafPrivateKey must be 32 bytes, got 31'
-      )
+      expect(() => client.deriveP2mrDescriptorKey(shortLeaf, 0)).toThrow('leafPrivateKey must be 32 bytes, got 31')
     })
   })
 
@@ -408,25 +370,21 @@ describe('length re-reads after validation (TOCTOU)', () => {
       const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as {
         values: () => IterableIterator<number>
       }
-      const values = vi.spyOn(typedArrayPrototype, 'values').mockReturnValue(
-        [][Symbol.iterator]() as IterableIterator<number>
-      )
+      const values = vi
+        .spyOn(typedArrayPrototype, 'values')
+        .mockReturnValue([][Symbol.iterator]() as IterableIterator<number>)
       // Pre-ES2024 runtimes have no ArrayBuffer.prototype.detached; where it
       // exists it is hidden too, so only the captured probe can reject the view.
       const detached =
         detachedDescriptor === undefined
           ? undefined
-          : vi
-              .spyOn(ArrayBuffer.prototype, 'detached', 'get')
-              .mockReturnValue(undefined as unknown as boolean)
+          : vi.spyOn(ArrayBuffer.prototype, 'detached', 'get').mockReturnValue(undefined as unknown as boolean)
       try {
         const msg = detachedCopy(messageBytes('patched-values'))
         expect(() => new Uint8Array(1).values()).not.toThrow()
 
         expect(() => client.sign(pair.secretKey, msg)).toThrow(DETACHED_ERROR)
-        expect(() => client.verify(pair.publicKey, msg, emptyMessageSignature)).toThrow(
-          DETACHED_ERROR
-        )
+        expect(() => client.verify(pair.publicKey, msg, emptyMessageSignature)).toThrow(DETACHED_ERROR)
       } finally {
         values.mockRestore()
         detached?.mockRestore()

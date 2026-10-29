@@ -46,22 +46,9 @@ const ALLOWED_FILES = new Set([
   'package.json',
   'types/pqc.d.mts',
 ])
-const ALLOWED_PREFIXES = [
-  'docs/',
-  'fixtures/',
-  'lib/',
-  'src/',
-  'vendor/libbitcoinpqc-qbit/',
-  'wasm/',
-]
+const ALLOWED_PREFIXES = ['docs/', 'fixtures/', 'lib/', 'src/', 'vendor/libbitcoinpqc-qbit/', 'wasm/']
 
-const FORBIDDEN_FILES = new Set([
-  '.gitignore',
-  'pnpm-lock.yaml',
-  'tsconfig.json',
-  'tsup.config.ts',
-  'vitest.config.ts',
-])
+const FORBIDDEN_FILES = new Set(['.gitignore', 'pnpm-lock.yaml', 'tsconfig.json', 'tsup.config.ts', 'vitest.config.ts'])
 const FORBIDDEN_PREFIXES = ['.context/', '.github/', 'native/', 'node_modules/', 'scripts/', 'test/']
 
 // Everything tsup writes (tsup.config.ts). lib/ is git-ignored and rebuilt by
@@ -150,9 +137,7 @@ export function validatePackFiles(paths) {
     errors.push(`files outside the release allowlist:\n  ${unexpected.join('\n  ')}`)
   }
 
-  const unbuilt = safePaths
-    .filter(path => path.startsWith(BUILD_DIR) && !BUILD_OUTPUTS.has(path))
-    .sort()
+  const unbuilt = safePaths.filter(path => path.startsWith(BUILD_DIR) && !BUILD_OUTPUTS.has(path)).sort()
   if (unbuilt.length > 0) {
     errors.push(`files in ${BUILD_DIR} that tsup does not build:\n  ${unbuilt.join('\n  ')}`)
   }
@@ -172,9 +157,7 @@ export function validateTrackedPackFiles(paths, { tracked, changed }) {
   const versioned = paths.filter(path => !BUILD_OUTPUTS.has(path))
   const untracked = versioned.filter(path => !tracked.has(path)).sort()
   if (untracked.length > 0) {
-    throw new Error(
-      `npm package contents include files not tracked by git:\n  ${untracked.join('\n  ')}`
-    )
+    throw new Error(`npm package contents include files not tracked by git:\n  ${untracked.join('\n  ')}`)
   }
 
   return versioned.filter(path => changed.has(path)).sort()

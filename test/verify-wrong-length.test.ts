@@ -1,14 +1,5 @@
 import { createContext, runInContext } from 'node:vm'
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-  type MockInstance,
-} from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 
 import {
   constants,
@@ -129,11 +120,7 @@ describe('verify with a wrong-length pk or sig', () => {
     describe.each(realms)('with arrays from %s', (_realm, make) => {
       // pk, msg and sig built by `make`, with pk and sig resized.
       function verifyResized(pkLength: number, sigLength: number): boolean {
-        return entry()(
-          make(pair.publicKey, pkLength),
-          make(message, message.length),
-          make(signature, sigLength)
-        )
+        return entry()(make(pair.publicKey, pkLength), make(message, message.length), make(signature, sigLength))
       }
 
       it('control: verifies the full-length pk and sig, copying them into wasm memory', () => {
@@ -195,9 +182,7 @@ describe('verify with a wrong-length pk or sig', () => {
       expect(() => call(shortPk, 'msg' as unknown as Uint8Array, longSig)).toThrow(
         new TypeError('msg must be a Uint8Array')
       )
-      expect(() => call(shortPk, message, arraySig)).toThrow(
-        new TypeError('sig must be a Uint8Array')
-      )
+      expect(() => call(shortPk, message, arraySig)).toThrow(new TypeError('sig must be a Uint8Array'))
       expect(() => call(int8Pk, message, longSig)).toThrow(new TypeError('pk must be a Uint8Array'))
       // A detached view reads as length 0, but it is not an empty input.
       expect(() => call(detachedCopy(pair.publicKey), message, signature)).toThrow(DETACHED_ERROR)

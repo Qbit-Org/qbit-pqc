@@ -11,15 +11,7 @@
 // every page, which must match the golden vectors without requesting
 // pqc.wasm: both recipes compile the copy embedded in lib/index.mjs.
 import { spawn } from 'node:child_process'
-import {
-  copyFileSync,
-  mkdirSync,
-  mkdtempSync,
-  readFile,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, readFile, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { createServer as createNetServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -34,11 +26,7 @@ import {
   chromeSandboxFlags,
   findPinnedChromeForTesting,
 } from './chrome-for-testing.mjs'
-import {
-  assertPackedPackageRoot,
-  packValidatedTarball,
-  removePackedConsumer,
-} from './stage-packed-consumer.mjs'
+import { assertPackedPackageRoot, packValidatedTarball, removePackedConsumer } from './stage-packed-consumer.mjs'
 import { installTerminationHandlers } from './termination-handlers.mjs'
 
 // Exact bundler versions, installed with npm's --before so that their own
@@ -297,10 +285,7 @@ async function prepareProject(stage, toolchain, tarballPath) {
     writeFileSync(join(page, 'index.html'), pageHtml('./main.js', 'module'))
     writeFileSync(join(page, 'main.js'), `${lines.join('\n')}\n`)
     copyFileSync(join(scriptDir, 'bundler-smoke.mjs'), join(page, 'smoke.js'))
-    writeFileSync(
-      join(page, 'golden-fixture.js'),
-      `export const fixture = ${JSON.stringify(fixture, null, 2)}\n`
-    )
+    writeFileSync(join(page, 'golden-fixture.js'), `export const fixture = ${JSON.stringify(fixture, null, 2)}\n`)
   }
   return { dir: project, vectorCount: fixture.vectors.length }
 }

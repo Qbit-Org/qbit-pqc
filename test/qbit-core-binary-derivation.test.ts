@@ -5,13 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import binaryFixture from '../fixtures/qbit-core-binary-derivation.json'
 import harnessFixture from '../fixtures/qbit-core-derivation.json'
 import { QBIT_CORE_RELEASE_SIGNERS } from '../scripts/qbit-core-release-signers.mjs'
-import {
-  constants,
-  deriveP2mrDescriptorKey,
-  derivePQCKey,
-  init,
-  type PqcClient,
-} from '../src/index'
+import { constants, deriveP2mrDescriptorKey, derivePQCKey, init, type PqcClient } from '../src/index'
 
 // Vectors in fixtures/qbit-core-binary-derivation.json were produced by an
 // unmodified qbit Core release binary (see scripts/generate-qbit-core-binary-vectors.mjs
@@ -126,17 +120,13 @@ function taggedHash(tag: string, ...chunks: Uint8Array[]): Uint8Array {
 // witness program qbit Core commits to for mr(pk(<pk32>)).
 function p2mrSingleLeafProgramHex(pk32Hex: string): string {
   const leafScript = new Uint8Array([0x20, ...hexToBytes(pk32Hex), OP_CHECKSIGPQC])
-  return bytesToHex(
-    taggedHash('P2MRLeaf', new Uint8Array([P2MR_LEAF_VERSION, leafScript.length]), leafScript)
-  )
+  return bytesToHex(taggedHash('P2MRLeaf', new Uint8Array([P2MR_LEAF_VERSION, leafScript.length]), leafScript))
 }
 
 // The witness program of a segwit address, without checking its bech32m
 // checksum: the addresses decoded here are qbit Core's output.
 function witnessProgramHex(address: string): string {
-  const words = Array.from(address.slice(address.lastIndexOf('1') + 1, -6), char =>
-    BECH32_CHARSET.indexOf(char)
-  )
+  const words = Array.from(address.slice(address.lastIndexOf('1') + 1, -6), char => BECH32_CHARSET.indexOf(char))
   const bytes: number[] = []
   let accumulator = 0
   let bits = 0
@@ -241,9 +231,7 @@ describe('qbit Core release binary derivation oracle', () => {
       const pathChange = vector.chain === 'external' ? 0 : 1
       const chain = fixture.chains[vector.chain]
       expect(chain).toBeDefined()
-      expect(vector.descriptor).toBe(
-        `mr(pk(pqc(${fixture.bip32.tprv}/87h/1h/0h/${pathChange}/*)))`
-      )
+      expect(vector.descriptor).toBe(`mr(pk(pqc(${fixture.bip32.tprv}/87h/1h/0h/${pathChange}/*)))`)
       expect(chain?.descriptor.startsWith(`${vector.descriptor}#`)).toBe(true)
       expect(vector.path).toEqual({
         purpose: 87,
@@ -275,18 +263,14 @@ describe('qbit Core release binary derivation oracle', () => {
       expect(bytesToHex(derived.pk32)).toBe(vector.publicKeyHex)
       expect(derived.pk32).toHaveLength(constants.PK_SIZE)
       expect(derived.sk64).toHaveLength(constants.SK_SIZE)
-      expect(bytesToHex(derived.sk64.slice(constants.SK_SIZE - constants.PK_SIZE))).toBe(
-        vector.publicKeyHex
-      )
+      expect(bytesToHex(derived.sk64.slice(constants.SK_SIZE - constants.PK_SIZE))).toBe(vector.publicKeyHex)
 
       const generated = deriveP2mrDescriptorKey(leaf, vector.path.index)
       expect(bytesToHex(generated.pk32)).toBe(vector.publicKeyHex)
       expect(generated.sk64).toEqual(derived.sk64)
 
       // Core's address commits to exactly this pk32 as a single P2MR leaf.
-      expect(vector.scriptPubKeyHex).toBe(
-        `${WITNESS_V2_P2MR_PREFIX}${p2mrSingleLeafProgramHex(vector.publicKeyHex)}`
-      )
+      expect(vector.scriptPubKeyHex).toBe(`${WITNESS_V2_P2MR_PREFIX}${p2mrSingleLeafProgramHex(vector.publicKeyHex)}`)
       expect(vector.address.startsWith('qbrt1z')).toBe(true)
     })
   }
@@ -310,20 +294,14 @@ describe('qbit Core release binary derivation oracle', () => {
   it("derives each leaf's un-ranged descriptor key with rangeIndex 0, as qbit Core does", () => {
     for (const vector of fixture.vectors) {
       // Control: the decoder recovers the program of Core's ranged address.
-      expect(witnessProgramHex(vector.address)).toBe(
-        vector.scriptPubKeyHex.slice(WITNESS_V2_P2MR_PREFIX.length)
-      )
+      expect(witnessProgramHex(vector.address)).toBe(vector.scriptPubKeyHex.slice(WITNESS_V2_P2MR_PREFIX.length))
 
       // Core derives the un-ranged mr(pk(pqc(<tprv>/87h/1h/0h/{change}/{index})))
       // with HKDF index 0, so it shares its key with the ranged descriptor only
       // at position 0.
-      const unranged = bytesToHex(
-        deriveP2mrDescriptorKey(hexToBytes(vector.leafPrivateKeyHex), 0).pk32
-      )
+      const unranged = bytesToHex(deriveP2mrDescriptorKey(hexToBytes(vector.leafPrivateKeyHex), 0).pk32)
       expect(vector.leafCrossCheck.address.startsWith('qbrt1z')).toBe(true)
-      expect(witnessProgramHex(vector.leafCrossCheck.address), vector.name).toBe(
-        p2mrSingleLeafProgramHex(unranged)
-      )
+      expect(witnessProgramHex(vector.leafCrossCheck.address), vector.name).toBe(p2mrSingleLeafProgramHex(unranged))
       expect(unranged === vector.publicKeyHex, vector.name).toBe(vector.path.index === 0)
     }
   })
@@ -339,9 +317,7 @@ describe('qbit Core release binary derivation oracle', () => {
     expect(dataSignature.leafVersion).toBe(P2MR_LEAF_VERSION)
     expect(dataSignature.leafScriptHex).toBe(`20${vector.publicKeyHex}b3`)
     expect(dataSignature.controlBlockHex).toBe('c1')
-    expect(vector.scriptPubKeyHex).toBe(
-      `${WITNESS_V2_P2MR_PREFIX}${dataSignature.p2mrMerkleRootHex}`
-    )
+    expect(vector.scriptPubKeyHex).toBe(`${WITNESS_V2_P2MR_PREFIX}${dataSignature.p2mrMerkleRootHex}`)
 
     // Core signs ComputeQbitDataSigPQCHash(message_hash), the tagged hash of
     // the caller's 32-byte message hash, not the message hash itself.

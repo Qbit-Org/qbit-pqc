@@ -130,9 +130,7 @@ describe('check-vendor against a copy of the vendored tree', () => {
 
     const { status, output } = runChecker(vendor)
     expect(status).toBe(1)
-    expect(output).toMatch(
-      new RegExp(`MANIFEST commit ${PIN} does not match UPSTREAM.md pin ${OTHER}`)
-    )
+    expect(output).toMatch(new RegExp(`MANIFEST commit ${PIN} does not match UPSTREAM.md pin ${OTHER}`))
   })
 
   it('fails when the UPSTREAM.md inventory drifts from MANIFEST', () => {
@@ -173,13 +171,9 @@ describe('UPSTREAM.md pin parsing', () => {
 
   it('rejects missing, duplicate, abbreviated, and uppercase pins', () => {
     expect(() => parseUpstreamPin('no pin here\n')).toThrow(/found 0/)
-    expect(() =>
-      parseUpstreamPin(`Pinned commit: \`${PIN}\`\nPinned commit: \`${OTHER}\`\n`)
-    ).toThrow(/found 2/)
+    expect(() => parseUpstreamPin(`Pinned commit: \`${PIN}\`\nPinned commit: \`${OTHER}\`\n`)).toThrow(/found 2/)
     expect(() => parseUpstreamPin('Pinned commit: `d165da6a`\n')).toThrow(/full 40-hex/)
-    expect(() => parseUpstreamPin(`Pinned commit: \`${PIN.toUpperCase()}\`\n`)).toThrow(
-      /full 40-hex/
-    )
+    expect(() => parseUpstreamPin(`Pinned commit: \`${PIN.toUpperCase()}\`\n`)).toThrow(/full 40-hex/)
   })
 })
 
@@ -199,14 +193,10 @@ describe('MANIFEST parsing', () => {
     expect(() => parseManifest(`commit ${PIN}\n${SHA}  LICENSE`)).toThrow(/end with a newline/)
     expect(() => parseManifest(entry)).toThrow(/no "commit <sha>" line/)
     expect(() => parseManifest(`commit ${PIN}\n`)).toThrow(/lists no files/)
-    expect(() => parseManifest(`commit ${PIN}\ncommit ${PIN}\n${entry}`)).toThrow(
-      /duplicate commit line/
-    )
+    expect(() => parseManifest(`commit ${PIN}\ncommit ${PIN}\n${entry}`)).toThrow(/duplicate commit line/)
     expect(() => parseManifest(`commit ${PIN}\n${entry}${entry}`)).toThrow(/duplicate path/)
     expect(() => parseManifest(`commit ${PIN}\n${SHA} LICENSE\n`)).toThrow(/malformed line/)
-    expect(() => parseManifest(`commit ${PIN}\n${SHA.slice(1)}  LICENSE\n`)).toThrow(
-      /malformed line/
-    )
+    expect(() => parseManifest(`commit ${PIN}\n${SHA.slice(1)}  LICENSE\n`)).toThrow(/malformed line/)
     expect(() => parseManifest(`commit ${PIN}\n${entry}\n`)).toThrow(/MANIFEST:3: malformed/)
     expect(() => parseManifest(`commit ${PIN}\n${SHA}  ../LICENSE\n`)).toThrow(/not allowed/)
     expect(() => parseManifest(`commit ${PIN}\n${SHA}  /LICENSE\n`)).toThrow(/not allowed/)
@@ -312,9 +302,7 @@ describe('check-vendor against an upstream checkout', () => {
     expect(runChecker(vendor).status).toBe(0)
     const { status, output } = runChecker(vendor, '--upstream', upstream)
     expect(status).toBe(1)
-    expect(output).toMatch(
-      new RegExp(`records ${localSha} for src/slh_dsa/sign\\.c, upstream has ${upstreamSha}`)
-    )
+    expect(output).toMatch(new RegExp(`records ${localSha} for src/slh_dsa/sign\\.c, upstream has ${upstreamSha}`))
   })
 
   it('regenerates the manifest from upstream blobs', () => {

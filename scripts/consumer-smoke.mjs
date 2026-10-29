@@ -15,8 +15,7 @@ const log = (...a) => console.log('[pqc-consumer]', ...a)
 // "default" condition loads the same ESM file (require(esm)), so both share one
 // module instance and its active client instead of loading a second copy
 const required = require('@qbit-oss/pqc')
-const { init, constants, keygen, sign, verify, derivePQCKey, secretKeyValidate } =
-  await import('@qbit-oss/pqc')
+const { init, constants, keygen, sign, verify, derivePQCKey, secretKeyValidate } = await import('@qbit-oss/pqc')
 assert.equal(typeof init, 'function', 'init export present')
 assert.equal(required.init, init, 'require() and import() share one module instance')
 assert.equal(constants.ALGORITHM, 'SLH-DSA-SHA2-128s-bounded30', 'constants.ALGORITHM')

@@ -3,13 +3,7 @@ import { readFileSync } from 'node:fs'
 
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import {
-  constants,
-  PqcError,
-  type PqcClient,
-  type PqcKeyPair,
-  type PqcWasmModule,
-} from '../src/index'
+import { constants, PqcError, type PqcClient, type PqcKeyPair, type PqcWasmModule } from '../src/index'
 import { freshClient } from './fresh-client'
 
 // Secret residue in WASM linear memory after each public operation, on its
@@ -102,12 +96,7 @@ function keyMaterial(secretKey: Uint8Array): { SK_SEED: Uint8Array; SK_PRF: Uint
   }
 }
 
-function hkdfEntropy(
-  masterSeed: Uint8Array,
-  account: number,
-  change: number,
-  index: number
-): Uint8Array {
+function hkdfEntropy(masterSeed: Uint8Array, account: number, change: number, index: number): Uint8Array {
   const info = Buffer.alloc(HKDF_INFO_PREFIX.length + 12)
   HKDF_INFO_PREFIX.copy(info)
   info.writeUInt32LE(account, HKDF_INFO_PREFIX.length)
@@ -234,9 +223,7 @@ async function probe(
   expect(findFragments(module, secrets)).toEqual([])
   if (stack === 'burned') {
     expect(used.written, 'stack written').toBeGreaterThanOrEqual(BURN_STACK_BYTES)
-    expect(used.written, 'stack written').toBeLessThanOrEqual(
-      BURN_STACK_BYTES + OUTER_FRAMES_BYTES
-    )
+    expect(used.written, 'stack written').toBeLessThanOrEqual(BURN_STACK_BYTES + OUTER_FRAMES_BYTES)
     expect(used.nonZero, 'deepest non-zero stack byte').toBeLessThanOrEqual(AFTER_BURN_BYTES)
   } else if (stack === 'untouched') {
     expect(used.written, 'stack written').toBe(0)
@@ -292,9 +279,7 @@ describe('WASM linear-memory secret residue', () => {
 
     it('rejects one byte too little entropy', async () => {
       const short = keygenEntropy.subarray(0, constants.MIN_ENTROPY - 1)
-      const { error } = await probe({ entropy: keygenEntropy }, 'untouched', client =>
-        client.keygen(short)
-      )
+      const { error } = await probe({ entropy: keygenEntropy }, 'untouched', client => client.keygen(short))
       expect(error).toBeInstanceOf(RangeError)
     })
 
@@ -315,9 +300,7 @@ describe('WASM linear-memory secret residue', () => {
         'master seed': masterSeed,
         'derived entropy': derivedEntropy,
       }
-      const { value } = await probe(secrets, 'burned', client =>
-        client.derivePQCKey(masterSeed, 0, 0, 0)
-      )
+      const { value } = await probe(secrets, 'burned', client => client.derivePQCKey(masterSeed, 0, 0, 0))
       expect(value).toEqual({ pk32: derived.publicKey, sk64: derived.secretKey })
     })
 
@@ -357,18 +340,14 @@ describe('WASM linear-memory secret residue', () => {
     })
 
     it('rejects an inconsistent key with BAD_KEY', async () => {
-      const { error } = await probe(keyMaterial(inconsistentKey), 'burned', client =>
-        sign(client, inconsistentKey)
-      )
+      const { error } = await probe(keyMaterial(inconsistentKey), 'burned', client => sign(client, inconsistentKey))
       expectPqcError(error, 'BAD_KEY')
     })
 
     it.each([4 * SPX_N - 1, 4 * SPX_N + 1])('rejects a %i-byte key', async length => {
       const sk = new Uint8Array(length)
       sk.set(pair.secretKey.subarray(0, Math.min(length, pair.secretKey.length)))
-      const { error } = await probe(keyMaterial(pair.secretKey), 'untouched', client =>
-        sign(client, sk)
-      )
+      const { error } = await probe(keyMaterial(pair.secretKey), 'untouched', client => sign(client, sk))
       expect(error).toBeInstanceOf(RangeError)
     })
 
@@ -458,9 +437,7 @@ describe('WASM linear-memory secret residue', () => {
   })
 
   it('control: the stack probe sees the frames verify leaves unburned', async () => {
-    const { value, stack } = await probe({}, 'unchecked', client =>
-      client.verify(pair.publicKey, MESSAGE, signature)
-    )
+    const { value, stack } = await probe({}, 'unchecked', client => client.verify(pair.publicKey, MESSAGE, signature))
     expect(value).toBe(true)
     expect(stack.written).toBeGreaterThan(0)
     expect(stack.nonZero).toBeGreaterThan(0)
