@@ -128,9 +128,16 @@ function uncurryDataViewMethod<A extends unknown[], R>(
   return Function.prototype.call.bind(method) as (view: DataView, ...args: A) => R
 }
 
-// Exported for callers, and frozen, like `constants`. verify and
-// secretKeyValidate compare native return codes with the module-private
-// copies above.
+/**
+ * The native `bitcoin_pqc_*` return codes by name: `BITCOIN_PQC_OK` (0) for
+ * success and a negative code for each failure. A {@link PqcError} carries the
+ * code of a native failure as `code`, its name as `nativeName` and its
+ * {@link PqcErrorKind} as `kind`.
+ *
+ * Exported for callers, and frozen, like `constants`. `verify` and
+ * `secretKeyValidate` compare native return codes with module-private copies
+ * of these values.
+ */
 export const errorCodes = Object.freeze({
   BITCOIN_PQC_OK: OK,
   BITCOIN_PQC_ERROR_BAD_ARG: -1,
@@ -141,10 +148,39 @@ export const errorCodes = Object.freeze({
   BITCOIN_PQC_ERROR_OUT_OF_MEMORY: -6,
 } as const)
 
+/** Alias of {@link errorCodes}: the same frozen object. */
 export const errors = errorCodes
 
+/** The name of a native failure code: a key of {@link errorCodes} other than `BITCOIN_PQC_OK`. */
 export type PqcNativeErrorName = Exclude<keyof typeof errorCodes, 'BITCOIN_PQC_OK'>
+/** A native failure code: a value of {@link errorCodes} other than `BITCOIN_PQC_OK` (0). */
 export type PqcNativeErrorCode = (typeof errorCodes)[PqcNativeErrorName]
+/**
+ * What failed, as a {@link PqcError} reports it in `kind`. The first six are
+ * native failures, named after their {@link errorCodes} entry:
+ *
+ * - `BAD_ARG`: the native library rejected an argument, such as a NULL pointer
+ *   or keygen entropy shorter than `constants.MIN_ENTROPY`. The wrapper rejects
+ *   such input itself, with a TypeError or RangeError, before the native call.
+ * - `BAD_KEY`: `sign` or `signWithStats` got a secret key whose stored root
+ *   does not match its seeds, the bytes {@link PqcClient.secretKeyValidate}
+ *   returns false for; from `keygen`, key generation itself failed.
+ * - `BAD_SIGNATURE`: from `sign` or `signWithStats`, the signing operation
+ *   itself failed. `verify` returns false instead of throwing it.
+ * - `NOT_IMPLEMENTED`: reserved; the native library does not return it.
+ * - `SIGNING_LIMIT`: signing one message hit the bounded30 FORS+C or WOTS+C
+ *   grind-attempt cap. Retrying the same bytes hits the same cap, so change the
+ *   message before signing again. The error from `signWithStats` carries the
+ *   signing stats.
+ * - `OUT_OF_MEMORY`: an allocation inside the native library failed: the key
+ *   or signature buffers, or keygen's seed-derivation buffer. A failed WASM
+ *   heap allocation by the wrapper itself throws a plain Error instead.
+ * - `NOT_INITIALIZED`: a named export was called before any `init()` call
+ *   succeeded. `code` is 0.
+ * - `LOAD_FAILED`: `init()` could not load the WASM module. The error is a
+ *   {@link PqcLoadError}, and `code` is 0.
+ * - `UNKNOWN`: a return code that names no failure in {@link errorCodes}.
+ */
 export type PqcErrorKind =
   | 'BAD_ARG'
   | 'BAD_KEY'
@@ -181,18 +217,46 @@ const nativeErrorKindsByName = withoutPrototype<Record<PqcNativeErrorName, PqcEr
   BITCOIN_PQC_ERROR_OUT_OF_MEMORY: 'OUT_OF_MEMORY',
 })
 
+/**
+ * The {@link errorCodes} name of a native failure code, or undefined for
+ * `BITCOIN_PQC_OK` (0) and any number that is not a code.
+ */
 export function nativeErrorName(code: number): PqcNativeErrorName | undefined {
   return nativeErrorNamesByCode[code]
 }
 
+/**
+ * The {@link PqcErrorKind} of a native failure code, as {@link PqcError}
+ * derives its `kind`, or `'UNKNOWN'` for 0 and any number that is not a
+ * failure code.
+ */
 export function nativeErrorKind(code: number): PqcErrorKind {
   const name = nativeErrorName(code)
   return name === undefined ? 'UNKNOWN' : nativeErrorKindsByName[name]
 }
 
-// Exported for callers, and frozen with every object it holds, so no code can
-// change a size or code that other code reads from it. The wrapper itself
-// reads the module-private copies above.
+/**
+ * The scheme's name, sizes and limits, and the native error codes:
+ *
+ * - `ALGORITHM`: the signature scheme, `'SLH-DSA-SHA2-128s-bounded30'`.
+ * - `PK_SIZE`, `SK_SIZE`, `SIG_SIZE`: the public key, secret key and signature
+ *   lengths in bytes (32, 64 and 3680).
+ * - `MIN_ENTROPY`: the fewest entropy bytes `keygen` accepts (128).
+ * - `MAX_MESSAGE_SIZE`: the longest `msg` in bytes without `allowLargeMessage`
+ *   (65536). `sign` and `signWithStats` throw a RangeError for a longer one,
+ *   and `verify` returns false.
+ * - `SIGN_STATS_WORDS`: the number of uint32 words the native signer writes
+ *   for `signWithStats` (11).
+ * - `WOTSC_LAYERS`: the number of WOTS+C layers, the length of
+ *   {@link PqcSignStats.wotscAttempts} (5).
+ * - `SIGN_LIMITS`: the bit flags of {@link PqcSignStats.capExceeded}: `NONE`
+ *   (0), `FORSC` (1) and `WOTSC` (2).
+ * - `ERROR_CODES`: {@link errorCodes}.
+ *
+ * Exported for callers, and frozen with every object it holds, so no code can
+ * change a size or code that other code reads from it. The wrapper itself
+ * reads module-private copies.
+ */
 export const constants = Object.freeze({
   ALGORITHM: 'SLH-DSA-SHA2-128s-bounded30',
   PK_SIZE,
@@ -210,31 +274,66 @@ export const constants = Object.freeze({
   ERROR_CODES: errorCodes,
 } as const)
 
+/** A key pair, as {@link keygen} returns it. */
 export interface PqcKeyPair {
+  /** The public key, `constants.PK_SIZE` (32) bytes. */
   publicKey: Uint8Array
+  /** The secret key, `constants.SK_SIZE` (64) bytes. */
   secretKey: Uint8Array
 }
 
+/**
+ * A derived key pair, as {@link deriveP2mrDescriptorKey} and
+ * {@link derivePQCKey} return it: the pair `keygen` gives for 128 bytes of
+ * entropy derived with HKDF-SHA256, as qbit Core derives them.
+ */
 export interface PqcDerivedKey {
+  /** The public key, `constants.PK_SIZE` (32) bytes. */
   pk32: Uint8Array
+  /** The secret key, `constants.SK_SIZE` (64) bytes. */
   sk64: Uint8Array
 }
 
+/**
+ * The native grind statistics of one signing call, from
+ * {@link PqcClient.signWithStats} or the {@link PqcError} it threw. Every
+ * number is a uint32.
+ */
 export interface PqcSignStats {
+  /** The FORS+C salt-grind attempts made for this signature. */
   forscAttempts: number
+  /** The FORS+C attempt cap: signing that reaches it without success fails with `SIGNING_LIMIT`. */
   forscMaxAttempts: number
+  /**
+   * The WOTS+C counter-grind attempts for each layer, in the order the layers
+   * were ground: `constants.WOTSC_LAYERS` (5) entries, 0 for a layer not
+   * reached.
+   */
   wotscAttempts: number[]
+  /** The number of WOTS+C layers ground: `constants.WOTSC_LAYERS` (5) for a signature that completed. */
   wotscLayerCount: number
+  /** The WOTS+C attempt cap for each layer: a layer that reaches it fails signing with `SIGNING_LIMIT`. */
   wotscMaxAttempts: number
+  /** The most attempts any one WOTS+C layer took. */
   wotscMaxObservedAttempts: number
+  /** The caps that were hit, as bit flags from `constants.SIGN_LIMITS`: `NONE` (0) when none was. */
   capExceeded: number
 }
 
+/** What {@link PqcClient.signWithStats} returns. */
 export interface PqcSignWithStatsResult {
+  /** The signature, `constants.SIG_SIZE` (3680) bytes. */
   sig: Uint8Array
+  /** The native grind statistics of this signature. */
   stats: PqcSignStats
 }
 
+/**
+ * Options for {@link PqcClient.sign}, {@link PqcClient.signWithStats} and
+ * {@link PqcClient.verify}. Pass `undefined` or a plain object (an object
+ * literal or `Object.create(null)`, from the same realm as the package) with no
+ * property other than `allowLargeMessage`; anything else throws a TypeError.
+ */
 export interface PqcMessageOptions {
   /**
    * Accept a `msg` longer than `constants.MAX_MESSAGE_SIZE` (65536) bytes,
@@ -244,17 +343,37 @@ export interface PqcMessageOptions {
   allowLargeMessage?: boolean
 }
 
+/** Optional fields of a {@link PqcError}, passed to its constructor. */
 export interface PqcErrorDetails {
+  /** The signing stats to attach as {@link PqcError.stats}. */
   stats?: PqcSignStats
 }
 
+/**
+ * The error a call throws when the native library fails, and the named exports
+ * throw before an `init()` call has succeeded; `init()` rejects with the
+ * subclass {@link PqcLoadError}. `kind` says what failed. An argument of the
+ * wrong type throws a TypeError instead, and one of the wrong length a
+ * RangeError (`verify` returns false).
+ */
 export class PqcError extends Error {
+  /**
+   * The call that failed: `'keygen'`, `'sign'`, `'signWithStats'`, `'verify'`
+   * or `'secretKeyValidate'` for a native failure, `'keygen'` also inside
+   * `derivePQCKey` and `deriveP2mrDescriptorKey`; `'init'` for a
+   * {@link PqcLoadError}; and for `NOT_INITIALIZED`, the named export called.
+   */
   readonly operation: string
-  // The native return code. Errors the wrapper raises itself, NOT_INITIALIZED
-  // and LOAD_FAILED, have code 0 and no nativeName.
+  /**
+   * The native return code. Errors the wrapper raises itself, NOT_INITIALIZED
+   * and LOAD_FAILED, have code 0 and no nativeName.
+   */
   readonly code: number
+  /** The {@link errorCodes} name of `code`, or undefined when `code` is not a native failure code. */
   readonly nativeName: PqcNativeErrorName | undefined
+  /** What failed; see {@link PqcErrorKind}. It follows from `code`, except for `NOT_INITIALIZED` and `LOAD_FAILED`. */
   readonly kind: PqcErrorKind
+  /** The signing stats on an error from `signWithStats`, as for `SIGNING_LIMIT`; undefined otherwise. */
   readonly stats: PqcSignStats | undefined
 
   constructor(operation: string, code: number, details: PqcErrorDetails = {}) {
@@ -286,9 +405,21 @@ export class PqcError extends Error {
  * original error, and the message names it too.
  */
 export class PqcLoadError extends PqcError {
+  /** Always `'LOAD_FAILED'`. */
   override readonly kind: 'LOAD_FAILED'
+  /**
+   * The file that failed, when `init()` knows it: the `moduleUrl` loader, or
+   * the location the loader asked for `pqc.wasm` at. Undefined otherwise, as
+   * when the loader had the bytes and fetched nothing.
+   */
   readonly url: string | undefined
+  /**
+   * The HTTP status of an error response for `url`, when a browser got one;
+   * undefined for a file, in Node, and when the request failed without a
+   * response.
+   */
   readonly status: number | undefined
+  /** The original error. */
   declare readonly cause: unknown
 
   constructor(url: string | undefined, status: number | undefined, options: { cause?: unknown } = {}) {
@@ -322,17 +453,51 @@ function causeReason(cause: unknown): string {
   }
 }
 
+/**
+ * The raw Emscripten module of `pqc.wasm`, which a {@link PqcWasmModuleFactory}
+ * resolves with: the type exported for `createModule`. Its exports skip the
+ * wrapper's checks and the zeroing of its copies in WASM memory, and the client
+ * `init()` builds on it does not expose it. Pointers are byte offsets into
+ * `HEAPU8`.
+ */
 export interface PqcWasmModule {
+  /** The module's WASM memory, as bytes. Growing the memory, as `_malloc` may, detaches the previous buffer. */
   HEAPU8: Uint8Array
+  /** Allocates `byteLength` bytes of WASM memory and returns a pointer to them. */
   _malloc(byteLength: number): number
+  /** Frees memory that `_malloc` allocated. */
   _free(pointer: number): void
+  /** The public key size in bytes; `init()` requires `constants.PK_SIZE` (32). */
   _qbit_pqc_public_key_size(): number
+  /** The secret key size in bytes; `init()` requires `constants.SK_SIZE` (64). */
   _qbit_pqc_secret_key_size(): number
+  /** The signature size in bytes; `init()` requires `constants.SIG_SIZE` (3680). */
   _qbit_pqc_signature_size(): number
+  /** The fewest keygen entropy bytes; `init()` requires `constants.MIN_ENTROPY` (128). */
   _qbit_pqc_keygen_entropy_min_size(): number
+  /**
+   * Generates a key pair from the `entropyLength` bytes at `entropy` and writes
+   * its public and secret keys at `publicKeyOut` and `secretKeyOut`. Returns an
+   * {@link errorCodes} value.
+   */
   _qbit_pqc_keygen(publicKeyOut: number, secretKeyOut: number, entropy: number, entropyLength: number): number
+  /**
+   * Checks the secret key at `secretKey` as {@link PqcClient.secretKeyValidate}
+   * does. Returns an {@link errorCodes} value: `BITCOIN_PQC_OK` for a
+   * consistent key, `BITCOIN_PQC_ERROR_BAD_KEY` for a wrong-size or
+   * inconsistent one.
+   */
   _qbit_pqc_secret_key_validate(secretKey: number, secretKeyLength: number): number
+  /**
+   * Signs the `messageLength` bytes at `message` with the secret key at
+   * `secretKey` and writes the signature at `signatureOut`. Returns an
+   * {@link errorCodes} value.
+   */
   _qbit_pqc_sign(signatureOut: number, secretKey: number, message: number, messageLength: number): number
+  /**
+   * `_qbit_pqc_sign`, also writing `constants.SIGN_STATS_WORDS` uint32 words of
+   * signing stats at `statsOut`, when signing fails too.
+   */
   _qbit_pqc_sign_with_stats(
     signatureOut: number,
     statsOut: number,
@@ -340,6 +505,12 @@ export interface PqcWasmModule {
     message: number,
     messageLength: number
   ): number
+  /**
+   * Verifies the `signatureLength` bytes at `signature` as a signature of the
+   * `messageLength` bytes at `message` under the public key at `publicKey`.
+   * Returns an {@link errorCodes} value: `BITCOIN_PQC_OK` when it is valid,
+   * `BITCOIN_PQC_ERROR_BAD_SIGNATURE` for a signature that does not verify.
+   */
   _qbit_pqc_verify(
     publicKey: number,
     message: number,
@@ -349,15 +520,59 @@ export interface PqcWasmModule {
   ): number
 }
 
+/**
+ * The options a {@link PqcWasmModuleFactory} takes. {@link InitOptions} extends
+ * them: `init()` passes the factory a `locateFile` of its own, which calls
+ * yours, and the bytes to compile, if it has them.
+ */
 export interface PqcWasmModuleOptions {
+  /**
+   * Where to load a file from: called with `'pqc.wasm'` and the loader's
+   * directory (a URL, or a file path in Node), it returns the URL or path to
+   * load. As an {@link init} option it makes `init()` load `pqc.wasm` from there
+   * instead of compiling the embedded copy, unless `wasmBinary` is set, and
+   * returning `undefined` or `null` keeps the default: beside `moduleUrl` when
+   * it is set, the package's own `pqc.wasm` file otherwise.
+   */
   locateFile?: (path: string, prefix: string) => string | undefined | null
+  /**
+   * The bytes of `pqc.wasm` to compile, so that no file is loaded. As an
+   * {@link init} option they replace the embedded copy and any location for
+   * `pqc.wasm` that `moduleUrl` or `locateFile` gives.
+   */
   wasmBinary?: ArrayBuffer | Uint8Array
 }
 
+/**
+ * An Emscripten factory that resolves with the WASM module, such as the default
+ * export of `@qbit-oss/pqc/wasm/pqc.mjs`. Pass one to {@link init} as
+ * `createModule`.
+ */
 export type PqcWasmModuleFactory = (options?: PqcWasmModuleOptions) => Promise<PqcWasmModule>
 
+/**
+ * Options for {@link init}. Without any, `init()` imports the package's loader
+ * and compiles the copy of `pqc.wasm` embedded in `lib/index.mjs`, fetching no
+ * file. Calls with the same options share one load.
+ */
 export interface InitOptions extends PqcWasmModuleOptions {
+  /**
+   * The URL of an Emscripten loader to import instead of the package's
+   * `wasm/pqc.mjs`, such as a copy served with your app from the same package
+   * version. `pqc.wasm` is then loaded from the loader's directory, or from the
+   * package when the URL has none (a `blob:` or `data:` URL), unless
+   * `locateFile` or `wasmBinary` says otherwise. The loader is imported with
+   * `import()`, which service workers do not allow. Ignored when `createModule`
+   * is set.
+   */
   moduleUrl?: string | URL
+  /**
+   * The Emscripten factory to call instead of importing a loader, such as the
+   * default export of `@qbit-oss/pqc/wasm/pqc.mjs` imported statically in a
+   * service worker, where `import()` is not allowed. `moduleUrl` is ignored.
+   * Without `locateFile` or `wasmBinary`, `init()` passes it the embedded copy
+   * of `pqc.wasm`, so nothing is fetched.
+   */
   createModule?: PqcWasmModuleFactory
 }
 
@@ -367,7 +582,18 @@ export interface InitOptions extends PqcWasmModuleOptions {
  * module, whose raw exports skip the wrapper's checks and zeroing.
  */
 export interface PqcClient {
+  /** The frozen {@link constants} object itself. */
   constants: typeof constants
+  /**
+   * Generates a key pair from `entropy`, which must be at least
+   * `constants.MIN_ENTROPY` (128) bytes: fewer throws a RangeError. Longer
+   * input is accepted, and all of it is hashed into the key seed. The same
+   * entropy always gives the same key pair, so draw it from a cryptographically
+   * secure generator such as `crypto.getRandomValues` and keep it as secret as
+   * the key. A native failure throws a {@link PqcError}, such as
+   * `OUT_OF_MEMORY` when the seed-derivation buffer, which grows with the
+   * entropy, cannot be allocated.
+   */
   keygen(entropy: Uint8Array): PqcKeyPair
   /**
    * Low-level primitive: qbit Core's `DerivePQCKey`, HKDF-SHA256 over
@@ -430,7 +656,20 @@ export interface PqcClient {
    *   for the WASM heap.
    */
   verify(pk: Uint8Array, msg: Uint8Array, sig: Uint8Array, options?: PqcMessageOptions): boolean
+  /**
+   * Whether `sk` is internally consistent: true when its stored root matches
+   * the root recomputed from its seeds, and false when it does not, the same
+   * verdict for which `sign` and `signWithStats` throw a {@link PqcError} with
+   * kind `'BAD_KEY'`. It does not check the PRF key `SK.prf` (bytes 16–31), so
+   * a key corrupted there still validates and signs the same message
+   * differently. An `sk` that is not `constants.SK_SIZE` (64) bytes throws a
+   * RangeError, and a native failure other than BAD_KEY a PqcError.
+   */
   secretKeyValidate(sk: Uint8Array): boolean
+  /**
+   * The current size in bytes of the WASM module's memory. Copying a long
+   * `msg` into it can grow it, and it never shrinks.
+   */
   wasmHeapBytes(): number
 }
 
@@ -749,6 +988,11 @@ function notInitializedError(operation: string): PqcError {
   return error
 }
 
+/**
+ * {@link PqcClient.keygen} on the client from the last `init()`: `entropy` must
+ * be at least `constants.MIN_ENTROPY` (128) bytes, and all of it is hashed into
+ * the key seed.
+ */
 export function keygen(entropy: Uint8Array): PqcKeyPair {
   return getActiveClient('keygen').keygen(entropy)
 }
@@ -801,6 +1045,10 @@ export function verify(pk: Uint8Array, msg: Uint8Array, sig: Uint8Array, options
   return getActiveClient('verify').verify(pk, msg, sig, options)
 }
 
+/**
+ * {@link PqcClient.secretKeyValidate} on the client from the last `init()`:
+ * whether the stored root of `sk` matches its seeds. `SK.prf` is not checked.
+ */
 export function secretKeyValidate(sk: Uint8Array): boolean {
   return getActiveClient('secretKeyValidate').secretKeyValidate(sk)
 }
