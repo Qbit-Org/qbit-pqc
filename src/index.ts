@@ -1762,6 +1762,10 @@ function signWithStatsWithModule(
     }
     signaturePtr = malloc(module, SIG_SIZE)
     statsPtr = malloc(module, SIGN_STATS_BYTES)
+    // Zeroed so that a shim path that returns without writing the stats, such
+    // as BAD_ARG, reads as not started rather than as heap bytes that look
+    // like caps.
+    zero(module, statsPtr, SIGN_STATS_BYTES)
 
     const rc = module._qbit_pqc_sign_with_stats(signaturePtr, statsPtr, secretKeyPtr, messagePtr, msgIn.length)
     const stats = readStats(module, statsPtr)

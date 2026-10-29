@@ -180,4 +180,36 @@ describe('signWithStats error stats', () => {
       })
     })
   }
+
+  // The shim's BAD_ARG early return leaves its stats output unwritten. Fill
+  // the stats allocation with bytes whose caps word is not 0, as a reused heap
+  // block can hold, and return without writing it.
+  for (const { label, rc } of [
+    { label: 'BAD_ARG', rc: errorCodes.BITCOIN_PQC_ERROR_BAD_ARG },
+    { label: 'an unknown code', rc: -99 },
+  ]) {
+    it(`leaves stats undefined for ${label} that does not write the stats`, () => {
+      const originalMalloc = module._malloc
+      const originalSign = module._qbit_pqc_sign_with_stats
+      let filled = false
+      module._malloc = (byteLength => {
+        const ptr = originalMalloc(byteLength)
+        if (byteLength === constants.SIGN_STATS_WORDS * Uint32Array.BYTES_PER_ELEMENT) {
+          module.HEAPU8.fill(0xa5, ptr, ptr + byteLength)
+          filled = true
+        }
+        return ptr
+      }) as PqcWasmModule['_malloc']
+      module._qbit_pqc_sign_with_stats = (() => rc) as PqcWasmModule['_qbit_pqc_sign_with_stats']
+      try {
+        const error = expectPqcError(() => client.signWithStats(secretKey, MESSAGE), nativeErrorKind(rc))
+        expect(filled).toBe(true)
+        expect(error.code).toBe(rc)
+        expect(error.stats).toBeUndefined()
+      } finally {
+        module._qbit_pqc_sign_with_stats = originalSign
+        module._malloc = originalMalloc
+      }
+    })
+  }
 })

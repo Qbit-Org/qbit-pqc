@@ -9,15 +9,19 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
 
 - A `PqcError` from `signWithStats` carries `stats` only when signing had
   started: every `SIGNING_LIMIT` error, and a `BAD_SIGNATURE` from a failed
-  signature or self-check. When signing fails before it starts, for example
-  with `BAD_KEY` for a secret key whose stored root does not match its seeds,
-  with `OUT_OF_MEMORY`, or with a `BAD_SIGNATURE` from deriving the signing
-  randomness, `stats` is now `undefined`. Before, it was always an object, all
-  zeros in those cases, which read like an attempt with caps of 0. The docs
-  only promised stats on `SIGNING_LIMIT` errors, which keep them, and
-  `PqcError.stats` was already typed `PqcSignStats | undefined`, so this is a
-  patch-level fix (see [RELEASING.md](RELEASING.md) "Versioning"). Code that
-  reads `error.stats.<field>` on any error should check for `undefined` first.
+  signature or self-check. Before, every native failure carried a `stats`
+  object, all zeros when signing failed before it started, which read like an
+  attempt with caps of 0. The wrapper also zeroes the stats buffer before the
+  native call, so a failure that returns without writing the stats can no
+  longer report leftover WASM heap bytes.
+
+  **Compatibility:** `stats` is now `undefined` on `BAD_KEY` (for example a
+  secret key whose stored root does not match its seeds), `OUT_OF_MEMORY`, a
+  `BAD_SIGNATURE` from deriving the signing randomness, and any other failure
+  before signing starts, so code that reads `error.stats.<field>`
+  unconditionally must check for `undefined` first. `SIGNING_LIMIT` errors,
+  the only ones documented to carry stats, keep them, and maintainers chose to
+  ship this in a patch release.
 
 ## 0.1.0 (2026-10-26)
 
