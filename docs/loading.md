@@ -225,9 +225,10 @@ Either way, a wrong location fails closed: `init()` rejects with a
 missing or do not have the digest. A `moduleUrl` that `init()` cannot resolve
 rejects too, naming it, rather than falling back to the package's own
 `pqc.wasm`, which need not match a loader from another copy. In Node, `init()`
-reads only a path or a `file://` URL, and rejects any other URL (one with `//`
-after its scheme, or a `data:` or `blob:` URL), naming its scheme; a path such
-as `build:v2/pqc.wasm` is still a path. For the most predictable result, have
+reads only a path or a URL starting with `file://` (lower case, as the loader
+reads it). It rejects any other URL, naming its scheme: one with `//` after its
+scheme, a `data:` or `blob:` URL, and `file:/x` or `FILE://` forms. A path
+such as `build:v2/pqc.wasm` is still a path. For the most predictable result, have
 `locateFile` return an absolute URL, or pass the bytes as `wasmBinary`.
 
 Not checked:
