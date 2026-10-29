@@ -9,6 +9,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Worker } from 'node:worker_threads'
 
 import { checkLib, ENTRY_EXPORTS, filesEmbeddingWasm, reachableFrom } from './package-surface.mjs'
 import { pinnedSha256, pinnedWasmSha256 } from './wasm-sha256.mjs'
@@ -271,7 +272,11 @@ assert.notEqual(external.init, main.init, 'each entry has its own init()')
 // main entry still embeds it
 const externalLib = dirname(externalPath)
 const externalReach = reachableFrom(externalLib, 'external-wasm.mjs').filter(file => file.endsWith('.mjs'))
-assert.deepEqual(externalReach, ['../wasm/pqc.mjs', './core.mjs', './external-wasm.mjs'], 'lib/external-wasm.mjs reach')
+assert.deepEqual(
+  externalReach,
+  ['../wasm/pqc.mjs', './core.mjs', './external-wasm.mjs', './shared.mjs'],
+  'lib/external-wasm.mjs reach'
+)
 assert.deepEqual(filesEmbeddingWasm(externalLib, externalReach), [], 'lib/external-wasm.mjs reaches no base64 WASM')
 for (const file of externalReach) {
   assert.doesNotMatch(
@@ -308,6 +313,46 @@ assert.deepEqual(compiledExternal, [sha256(wasmBinaryPath)], 'external init() co
 assert.equal(await main.ready(), pqc3, 'the main entry uses the client external init() published')
 const sig3 = main.sign(secretKey, msg)
 assert.equal(external.verify(publicKey, msg, sig3), true, 'sign and verify across entries')
+
+// (12) the worker entries resolve by name. Everything the client's file
+// reaches, through static and dynamic imports and new URL(..., import.meta.url),
+// is itself and lib/shared.mjs: never lib/core.mjs, the Emscripten loader or
+// pqc.wasm, and no file it reaches embeds WASM
+const workerClientPath = require.resolve('@qbit-oss/pqc/worker')
+log('resolved worker client: ', workerClientPath)
+log('resolved worker handler:', require.resolve('@qbit-oss/pqc/worker/handler'))
+const libDir = dirname(workerClientPath)
+const clientGraph = reachableFrom(libDir, 'worker.mjs')
+assert.deepEqual(clientGraph, ['./shared.mjs', './worker.mjs'], 'lib/worker.mjs reaches only lib/shared.mjs')
+for (const file of clientGraph) {
+  assert.equal(readFileSync(join(libDir, file), 'utf8').includes('AGFzbQ'), false, `${file} embeds no base64 WASM`)
+}
+
+// (13) a sign/verify round trip through a worker_threads worker that serves
+// the installed package (consumer-worker.mjs). Its errors are the package's
+// classes, and the caller's buffers stay attached
+const { createPqcWorkerClient } = await import('@qbit-oss/pqc/worker')
+assert.equal(require('@qbit-oss/pqc/worker').createPqcWorkerClient, createPqcWorkerClient, 'require() shares ./worker')
+const worker = new Worker(new URL('./consumer-worker.mjs', import.meta.url))
+const workerClient = createPqcWorkerClient(worker)
+try {
+  assert.equal(workerClient.constants, constants, 'the worker client has the package constants')
+  const workerSig = await workerClient.sign(secretKey, msg)
+  assert.deepEqual(Array.from(workerSig), Array.from(sig), 'the worker signs as this thread does')
+  assert.equal(await workerClient.verify(publicKey, msg, workerSig), true, 'the worker verifies its signature')
+  assert.equal(secretKey.length, constants.SK_SIZE, "the caller's secret key is not detached")
+  const badKey = new Uint8Array(secretKey)
+  badKey[constants.SK_SIZE - 1] ^= 0x80
+  const failure = await workerClient.sign(badKey, msg).then(
+    () => assert.fail('sign with a bad key resolved'),
+    error => error
+  )
+  assert.ok(failure instanceof main.PqcError, 'a worker PqcError is an instance of the package class')
+  assert.equal(failure.kind, 'BAD_KEY', 'the rebuilt PqcError keeps its kind')
+} finally {
+  workerClient.close()
+  await worker.terminate()
+}
 
 log('ALL CHECKS PASSED')
 console.log(JSON.stringify({ ok: true, pkg: '@qbit-oss/pqc' }))

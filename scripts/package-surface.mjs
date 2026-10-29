@@ -33,23 +33,37 @@ export const EXPORTS_0_1_0 = Object.freeze([
 export const ENTRY_EXPORTS = Object.freeze({
   '@qbit-oss/pqc': EXPORTS_0_1_0,
   '@qbit-oss/pqc/external-wasm': EXPORTS_0_1_0,
+  '@qbit-oss/pqc/worker': Object.freeze([
+    'PqcError',
+    'PqcLoadError',
+    'constants',
+    'createPqcWorkerClient',
+    'errorCodes',
+  ]),
+  '@qbit-oss/pqc/worker/handler': Object.freeze(['servePqcWorker']),
 })
 
 // Each built lib/*.mjs file and the files it refers to: its static and
 // dynamic imports, and what it locates with new URL(..., import.meta.url).
-// lib/core.mjs holds the one copy of the implementation. A source import that
+// lib/core.mjs holds the one copy of the implementation, and lib/shared.mjs the
+// one copy of what it shares with the worker client, which must not reach the
+// Emscripten loader or pqc.wasm (see reachableFrom). A source import that
 // the build did not keep as an import of the built file would put a second
 // copy, with state of its own, into the importing entry: its graph would
 // change here, and it would contain the implementation's markers below.
 export const LIB_GRAPH = Object.freeze({
-  'core.mjs': ['../wasm/pqc.mjs', '../wasm/pqc.wasm'],
+  'core.mjs': ['./shared.mjs', '../wasm/pqc.mjs', '../wasm/pqc.wasm'],
   'external-wasm.mjs': ['./core.mjs'],
   'index.mjs': ['./core.mjs', './external-wasm.mjs'],
+  'shared.mjs': [],
+  'worker-handler.mjs': ['./core.mjs', './shared.mjs'],
+  'worker.mjs': ['./shared.mjs'],
 })
 
 // Code that only the file named holds, as esbuild writes it.
 export const LIB_MARKERS = Object.freeze({
-  'core.mjs': ['function createPqcClient(', 'var PqcError = class'],
+  'core.mjs': ['function createPqcClient('],
+  'shared.mjs': ['var PqcError = class', 'function readAllowLargeMessage('],
 })
 
 // The start of a base64 WASM binary: its magic number, \0asm, encodes as

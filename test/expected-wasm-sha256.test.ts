@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import ts from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import goldenFixture from '../fixtures/slh-dsa-golden.json'
 import type * as Pqc from '../src/index'
 import { pinnedWasmSha256 } from '../scripts/wasm-sha256.mjs'
 import createPqcModule from '../wasm/pqc.mjs'
+import { importSourceCopy } from './source-copy'
 
 type PqcExports = typeof Pqc
 type PqcModuleOptions = Pqc.PqcWasmModuleOptions
@@ -663,7 +663,7 @@ describe('init() without expectedWasmSha256', () => {
 // stubbed. The factory still runs in Node, with the fetched bytes.
 let copies = 0
 
-// src/core.ts evaluated again from a data: URL, which also exports
+// src/core.ts evaluated again from a data: URL (test/source-copy.ts), which also exports
 // loaderDirectory; outside Node, with `process` shadowed in the module. With
 // `stubResolve`, import.meta.resolve is globalThis.__pqcTestResolve instead,
 // and with `stubImport`, the import() of a moduleUrl loader is
@@ -680,21 +680,18 @@ async function transpiledPqc({
   stubResolve?: boolean
   stubImport?: boolean
 }): Promise<PqcExports & { loaderDirectory(moduleUrl: string | URL | undefined): string }> {
-  let source = readFileSync(new URL('../src/core.ts', import.meta.url), 'utf8')
-  if (stubResolve) {
-    // Code only: the error messages name import.meta.resolve too.
-    source = source.replace(/import\.meta\.resolve(?=[ (])/g, 'globalThis.__pqcTestResolve')
-  }
-  if (stubImport) {
-    source = source.replace('import(/* webpackIgnore: true */ url)', 'globalThis.__pqcTestImport(url)')
-  }
   copies += 1
   const shadow = browser ? 'const process = undefined\n' : ''
-  const { outputText } = ts.transpileModule(`${shadow}${source}\nexport { loaderDirectory }\n// copy ${copies}\n`, {
-    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+  return importSourceCopy(`expected ${copies}`, source => {
+    if (stubResolve) {
+      // Code only: the error messages name import.meta.resolve too.
+      source = source.replace(/import\.meta\.resolve(?=[ (])/g, 'globalThis.__pqcTestResolve')
+    }
+    if (stubImport) {
+      source = source.replace('import(/* webpackIgnore: true */ url)', 'globalThis.__pqcTestImport(url)')
+    }
+    return `${shadow}${source}\nexport { loaderDirectory }\n`
   })
-  const url = `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
-  return import(/* @vite-ignore */ url)
 }
 
 // The prefix init() passes to locateFile with expectedWasmSha256 is the one

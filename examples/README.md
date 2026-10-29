@@ -8,6 +8,7 @@ the npm package. Each one prints the lines that the comments on its
 | --- | --- |
 | [`quick-start.mjs`](quick-start.mjs) | The README quick start: generate a key pair from 128 bytes of random entropy, sign the SHA-256 digest of a message, and verify the signature (`true`) and a tampered copy (`false`). |
 | [`wallet-derivation.mjs`](wallet-derivation.mjs) | Derive the P2MR key for a BIP32 leaf key and descriptor index with `deriveP2mrDescriptorKey`, and check it against the key qbit Core derives (vector `mainnet_external_index_42` of `fixtures/qbit-core-derivation.json`). |
+| [`worker-signing.mjs`](worker-signing.mjs) | Sign and verify in a `worker_threads` worker with `@qbit-oss/pqc/worker`: the file starts itself as the worker, which serves the client with `servePqcWorker`, and calls it through `createPqcWorkerClient`. |
 
 ## Running an example
 

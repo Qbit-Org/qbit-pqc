@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs'
 
-import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import derivationFixture from '../fixtures/qbit-core-derivation.json'
@@ -17,6 +16,7 @@ import {
   type PqcWasmModule,
 } from '../src/index'
 import { freshClient } from './fresh-client'
+import { importSourceCopy } from './source-copy'
 
 // Regression coverage for caller code that runs during a call: argument
 // validation used `value instanceof Uint8Array`, which walks the
@@ -306,19 +306,13 @@ async function loadRecordingCopy(): Promise<RecordingCopy> {
         return array
       },
     })
-  const source = readFileSync(new URL('../src/core.ts', import.meta.url), 'utf8')
-  // The trailing comment keeps this copy's data: URL apart from any other
-  // copy's, so the import evaluates it afresh.
-  const { outputText } = ts.transpileModule(`${source}\n// recording copy\n`, {
-    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
-  })
-  const url = `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
   const uninstall = combine(
     () => patchProperty(globalThis, 'Uint8Array', recording(RealUint8Array)),
     () => patchProperty(globalThis, 'Uint32Array', recording(RealUint32Array))
   )()
   try {
-    const copy = (await import(/* @vite-ignore */ url)) as { init: typeof init }
+    // The copy of src/shared.ts it imports captures the Proxies.
+    const copy = await importSourceCopy<{ init: typeof init }>('recording')
     return { init: copy.init, created }
   } finally {
     uninstall()

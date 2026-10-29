@@ -3,9 +3,10 @@ import { defineConfig, type Options } from 'tsup'
 import { pinnedWasmSha256 } from './scripts/wasm-sha256.mjs'
 
 // Each entry, by the name of its source in src/ and of its build in lib/.
-// lib/core.mjs holds the implementation, which no `exports` entry names; the
-// others are the "." and "./external-wasm" entries.
-const ENTRIES = ['core', 'external-wasm', 'index']
+// lib/core.mjs holds the implementation, and lib/shared.mjs what it shares with
+// the worker client; no `exports` entry names either. The others are the ".",
+// "./external-wasm", "./worker" and "./worker/handler" entries.
+const ENTRIES = ['core', 'shared', 'external-wasm', 'index', 'worker', 'worker-handler']
 
 // An import of one entry from another, such as `./core`, stays an import of
 // the built file, `./core.mjs`, so every entry shares one copy of the

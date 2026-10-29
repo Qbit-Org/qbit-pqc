@@ -17,7 +17,7 @@ npm install @qbit-oss/pqc
 With pnpm or Yarn, run `pnpm add @qbit-oss/pqc` or `yarn add @qbit-oss/pqc`.
 
 The package supports Node `^20.19.0 || >=22.12.0`, its `engines` range, and
-browsers (see [Loading](#loading)). It is an ES module with no CommonJS build;
+browsers (see [Supported runtimes](#supported-runtimes)). It is an ES module with no CommonJS build;
 on those Node versions, `require('@qbit-oss/pqc')` loads the same module
 through `require(esm)`.
 
@@ -164,8 +164,52 @@ out `locateFile`: the static-factory recipe
 `init({ createModule: createPqcModule })` compiles the embedded copy. Call
 `init()` at the top level of the service worker, because the client does not
 survive a restart, and sign off its thread, because each signature blocks it
-for about 0.6 s.
+for about 0.6 s (see [Signing in a worker](#signing-in-a-worker)).
 [Service worker details](docs/loading.md#service-workers) explain both.
+
+## Signing in a worker
+
+`@qbit-oss/pqc/worker` runs the client methods in a dedicated worker, so a
+signature does not block the calling thread for 0.6 s. The worker serves a
+client with `servePqcWorker` from `@qbit-oss/pqc/worker/handler`, and the
+other side calls it through `createPqcWorkerClient`, whose methods return
+promises:
+
+<!-- snippet: test/types/docs-worker-browser.mts -->
+```ts
+// pqc-worker.js
+import { init } from '@qbit-oss/pqc'
+import { servePqcWorker } from '@qbit-oss/pqc/worker/handler'
+
+servePqcWorker({ client: init() })
+```
+
+<!-- snippet: test/types/docs-worker-browser.mts -->
+```ts
+import { createPqcWorkerClient } from '@qbit-oss/pqc/worker'
+
+const worker = new Worker(new URL('./pqc-worker.js', import.meta.url), { type: 'module' })
+const pqc = createPqcWorkerClient(worker)
+
+const signature = await pqc.sign(secretKey, digest)
+```
+
+The client copies byte arguments into buffers it transfers, so the caller's
+buffers are never detached, and `PqcError` and `PqcLoadError` keep their
+classes and fields. The calling side loads no WASM. An MV3 service worker
+cannot start a worker, so an offscreen document starts it and relays the
+service worker's requests. [Signing in a worker](docs/worker.md) covers Node,
+the MV3 relay, the copies the worker zeroes and the ones it cannot, and
+closing.
+
+## Supported runtimes
+
+Node `^20.19.0 || >=22.12.0`, browsers with WebAssembly, Chrome MV3
+extensions (the service worker, an offscreen document and a dedicated worker),
+and the versions of webpack, esbuild and Vite the bundler smoke builds with.
+React Native is not supported: the package needs a global `WebAssembly`.
+[Supported runtimes](docs/runtimes.md) lists what CI checks in each, and how
+to supply a module built or instantiated differently through `createModule`.
 
 ## Message size
 
@@ -200,6 +244,10 @@ corrupted key and what to change after a `SIGNING_LIMIT` error.
   client, load errors, loading options, bundlers and service workers.
 - [Signing: message size and usage bound](docs/signing.md): measured signing
   times, the 64 KiB cap and its `options`, and the 2^30-signature bound.
+- [Signing in a worker](docs/worker.md): the worker client and handler, the
+  MV3 offscreen-document relay, buffers, errors and closing.
+- [Supported runtimes](docs/runtimes.md): Node, browsers, Chrome MV3,
+  bundlers, React Native, and modules built or instantiated differently.
 - [Derivation contract](docs/derivation.md): how qbit wallet keys are derived,
   with the fixture vectors.
 - [MV3 conformance](docs/mv3-conformance.md): CSP, WASM packaging, smoke test

@@ -11,7 +11,9 @@ const REQUIRED_FILES = [
   'docs/loading.md',
   'docs/mv3-conformance.md',
   'docs/qbit-js.md',
+  'docs/runtimes.md',
   'docs/signing.md',
+  'docs/worker.md',
   'fixtures/qbit-core-binary-derivation.json',
   'fixtures/qbit-core-derivation.json',
   'fixtures/slh-dsa-golden.json',
@@ -26,10 +28,23 @@ const REQUIRED_FILES = [
   'lib/index.d.mts',
   'lib/index.mjs',
   'lib/index.mjs.map',
+  'lib/shared.d.mts',
+  'lib/shared.mjs',
+  'lib/shared.mjs.map',
+  'lib/worker-handler.d.mts',
+  'lib/worker-handler.mjs',
+  'lib/worker-handler.mjs.map',
+  'lib/worker.d.mts',
+  'lib/worker.mjs',
+  'lib/worker.mjs.map',
   'package.json',
   'src/core.ts',
   'src/external-wasm.ts',
   'src/index.ts',
+  'src/shared.ts',
+  'src/worker-handler.ts',
+  'src/worker-protocol.ts',
+  'src/worker.ts',
   'types/pqc.d.mts',
   'vendor/libbitcoinpqc-qbit/LICENSE',
   'vendor/libbitcoinpqc-qbit/MANIFEST',
@@ -60,10 +75,10 @@ const ALLOWED_PREFIXES = ['docs/', 'fixtures/', 'lib/', 'src/', 'vendor/libbitco
 const FORBIDDEN_FILES = new Set(['.gitignore', 'pnpm-lock.yaml', 'tsconfig.json', 'tsup.config.ts', 'vitest.config.ts'])
 const FORBIDDEN_PREFIXES = ['.context/', '.github/', 'native/', 'node_modules/', 'scripts/', 'test/']
 
-// Everything tsup writes (tsup.config.ts): the "." and "./external-wasm"
-// entries and lib/core.mjs, the implementation both import by name rather than
-// through a hashed chunk. lib/ is git-ignored and rebuilt by prepack, so these
-// are the only packed paths that git does not track.
+// Everything tsup writes (tsup.config.ts): the four entries, and lib/core.mjs
+// and lib/shared.mjs, which no exports entry names and the entries import by
+// name rather than through a hashed chunk. lib/ is git-ignored and rebuilt by
+// prepack, so these are the only packed paths that git does not track.
 const BUILD_DIR = 'lib/'
 const BUILD_OUTPUTS = new Set([
   'lib/core.d.mts',
@@ -75,6 +90,15 @@ const BUILD_OUTPUTS = new Set([
   'lib/index.d.mts',
   'lib/index.mjs',
   'lib/index.mjs.map',
+  'lib/shared.d.mts',
+  'lib/shared.mjs',
+  'lib/shared.mjs.map',
+  'lib/worker-handler.d.mts',
+  'lib/worker-handler.mjs',
+  'lib/worker-handler.mjs.map',
+  'lib/worker.d.mts',
+  'lib/worker.mjs',
+  'lib/worker.mjs.map',
 ])
 
 function isAllowed(path) {

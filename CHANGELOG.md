@@ -79,6 +79,36 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
   entry. Through either entry, `init()` reads each of its options once per
   call. Requested in
   [Qbit-Org/qbit-wallet#40](https://github.com/Qbit-Org/qbit-wallet/issues/40).
+- New entry points `@qbit-oss/pqc/worker` and `@qbit-oss/pqc/worker/handler`
+  for signing off the calling thread
+  ([#7](https://github.com/Qbit-Org/qbit-pqc/issues/7)).
+  `servePqcWorker({ client, endpoint })` serves a client, such as the promise
+  `init()` returns, in a dedicated worker; `createPqcWorkerClient(endpoint)`
+  returns a client whose `keygen`, `derivePQCKey`, `deriveP2mrDescriptorKey`,
+  `sign`, `signWithStats`, `verify` and `secretKeyValidate` run in that
+  worker and return promises, with `constants` and `close()`. An endpoint is
+  a `Worker`, a `MessagePort`, Node's `worker_threads` `Worker` or
+  `parentPort`, or any object with `postMessage` and message events. Each
+  client tags its requests with a random nonce, so clients sharing a worker
+  never take each other's results. Byte arguments are copied into buffers
+  that are transferred, so the caller's buffers are never detached; the
+  worker zeroes its copies after each call and transfers results back.
+  `options` is read on the calling side before the request is sent.
+  `PqcError` and `PqcLoadError` are rebuilt as instances of the package's
+  classes, with their fields; a `TypeError` or `RangeError` keeps its type
+  and message. A worker that exits, or a port whose other end closes, rejects
+  the pending calls with an `Error` named `PqcWorkerClosedError`; a browser
+  worker's `error` and `messageerror` events go to an `onError` option and
+  leave the client open. `close()` keeps receiving the answers to the calls
+  it rejected, to zero them; a second `close()` or `close({ force: true })`
+  stops at once. The calling side's imports reach neither the Emscripten
+  loader nor `pqc.wasm`; `@qbit-oss/pqc/worker` also exports `PqcError`,
+  `PqcLoadError`, `errorCodes` and `constants`, the same objects every entry
+  exports, so code that holds the client checks errors without loading the
+  WASM module.
+  [Signing in a worker](docs/worker.md) shows the MV3 offscreen-document
+  relay and lists the copies the package cannot zero, and
+  `examples/worker-signing.mjs` signs in a `worker_threads` worker.
 
 - `init()` takes an optional `expectedWasmSha256`, the SHA-256 of `pqc.wasm`
   as 64 lowercase hex characters, and the new `constants.WASM_SHA256` is the
@@ -127,19 +157,34 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
 
 ### Packaging and docs
 
-- The implementation moves from `lib/index.mjs` to `lib/core.mjs`, which no
-  `exports` entry names. `lib/index.mjs` and the new `lib/external-wasm.mjs`
-  import it and export only the public API, 0.1.0's names, so helpers the
-  package's own files share are not reachable through an entry. The tarball
-  gains `lib/core.mjs` and `lib/external-wasm.mjs`, with their source maps
-  and declarations, and `src/core.ts` and `src/external-wasm.ts`, their
-  sources. `typesVersions` maps
-  `@qbit-oss/pqc/external-wasm` to its declarations for TypeScript's `node10`
-  resolution, which reads no `exports` map.
+- New [Supported runtimes](docs/runtimes.md) page, summarized in the README:
+  Node `^20.19.0 || >=22.12.0`, browsers, Chrome MV3 (service worker,
+  offscreen document, dedicated worker), the bundler versions the bundler
+  smoke builds with, and that React Native, which has no global
+  `WebAssembly`, is not supported. It shows how to supply a module built or
+  instantiated differently through `createModule`, since the loader reads
+  only `locateFile` and `wasmBinary` and so ignores Emscripten's
+  `instantiateWasm`.
+- The implementation moves from `lib/index.mjs` to `lib/core.mjs`, and the
+  error classes, codes, constants and byte checks it shares with the worker
+  client to `lib/shared.mjs`; no `exports` entry names either.
+  `lib/index.mjs` and the new `lib/external-wasm.mjs` import them and export
+  only the public API, 0.1.0's names, so helpers the package's own files
+  share are not reachable through an entry. The tarball gains `lib/core.mjs`,
+  `lib/shared.mjs` and `lib/external-wasm.mjs`, with their source maps and
+  declarations, and their sources `src/core.ts`, `src/shared.ts` and
+  `src/external-wasm.ts`. `typesVersions` maps `@qbit-oss/pqc/external-wasm`,
+  `@qbit-oss/pqc/worker` and `@qbit-oss/pqc/worker/handler` to their
+  declarations for TypeScript's `node10` resolution, which reads no `exports`
+  map.
   **Compatibility:** `lib/index.mjs` now imports the files beside it.
   Bundlers and Node follow those imports, but a setup that copies only
   `lib/index.mjs`, such as an extension that ships the package's files
   without a bundler, must copy the whole `lib/` directory.
+- The tarball gains `lib/worker.mjs` and `lib/worker-handler.mjs`, with their
+  source maps and declarations, their sources `src/worker.ts`,
+  `src/worker-handler.ts` and `src/worker-protocol.ts`, and
+  `docs/worker.md` and `docs/runtimes.md`.
 
 ## 0.1.0 (2026-10-26)
 
