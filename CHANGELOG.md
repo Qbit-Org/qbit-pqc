@@ -3,7 +3,7 @@
 Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
 [RELEASING.md](RELEASING.md)). Below 1.0, breaking changes bump MINOR.
 
-## 0.1.1 (unreleased)
+## 0.1.1 (2026-10-29)
 
 ### API
 
@@ -185,6 +185,25 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
   source maps and declarations, their sources `src/worker.ts`,
   `src/worker-handler.ts` and `src/worker-protocol.ts`, and
   `docs/worker.md` and `docs/runtimes.md`.
+- The README, which is the npm page, leads with install and a runnable quick
+  start. Its reference text moves unchanged to `docs/api.md`,
+  `docs/loading.md` and `docs/signing.md`. The README keeps a short summary
+  under each old heading, so links to its sections still land.
+  `docs/qbit-js.md` shows how to sign PSBTs and message proofs with
+  qbit-js's `@qbit-oss/protocol` 0.1.0. Every export now has a doc comment,
+  so `lib/index.d.mts` documents the whole API in editors. The status lines
+  that said nothing had been published are corrected.
+
+### Development
+
+- CONTRIBUTING.md, `.nvmrc`, and `pnpm verify`, which runs every offline
+  check of CI's `verify` job in order. Prettier (width 120) formats the
+  sources, with the byte-exact paths left alone; `wasm/` and `native/` are
+  kept from line-ending conversion. A new `node-matrix` CI job builds and
+  tests on the engines floors 20.19.0 and 22.12.0, and on Node 24 and 26.
+- `examples/` holds runnable examples that `pnpm smoke:consumer` runs
+  against the installed tarball. Every JavaScript and TypeScript code block
+  in README.md and `docs/` must match a file that CI runs or type-checks.
 
 ## 0.1.0 (2026-10-26)
 
