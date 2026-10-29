@@ -66,6 +66,19 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
   fail.
   [Qbit-Org/qbit-pqc#10](https://github.com/Qbit-Org/qbit-pqc/issues/10)
   tracks these reads. Keys, signatures and the module's exports are unchanged.
+- New entry point `@qbit-oss/pqc/external-wasm`: the same API as
+  `@qbit-oss/pqc` without the copy of `pqc.wasm` that `lib/index.mjs` embeds
+  as base64, which keeps about 70 KB out of a bundle that imports only this
+  entry. Its `init()` loads `pqc.wasm` from `locateFile`, beside `moduleUrl`,
+  or the package's own `wasm/pqc.wasm` file, unless `wasmBinary` passes the
+  bytes. The two entries share one module instance: one published client,
+  `ready()` and `isInitialized()`, the same named exports, `PqcError` and
+  `PqcLoadError` classes, `constants` and `errorCodes`, whichever an app or
+  its dependencies import. `@qbit-oss/pqc` behaves as before. The README's
+  MV3 recipe, which passes `locateFile`, now imports `init` from the new
+  entry. Through either entry, `init()` reads each of its options once per
+  call. Requested in
+  [Qbit-Org/qbit-wallet#40](https://github.com/Qbit-Org/qbit-wallet/issues/40).
 
 - `init()` takes an optional `expectedWasmSha256`, the SHA-256 of `pqc.wasm`
   as 64 lowercase hex characters, and the new `constants.WASM_SHA256` is the
@@ -111,6 +124,22 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
   `pqc.wasm` (previously `8696a3a4…`). Integrators who pin these hashes, as
   qbit-wallet does in `scripts/security/sdk-package-pins.json`, must update
   them.
+
+### Packaging and docs
+
+- The implementation moves from `lib/index.mjs` to `lib/core.mjs`, which no
+  `exports` entry names. `lib/index.mjs` and the new `lib/external-wasm.mjs`
+  import it and export only the public API, 0.1.0's names, so helpers the
+  package's own files share are not reachable through an entry. The tarball
+  gains `lib/core.mjs` and `lib/external-wasm.mjs`, with their source maps
+  and declarations, and `src/core.ts` and `src/external-wasm.ts`, their
+  sources. `typesVersions` maps
+  `@qbit-oss/pqc/external-wasm` to its declarations for TypeScript's `node10`
+  resolution, which reads no `exports` map.
+  **Compatibility:** `lib/index.mjs` now imports the files beside it.
+  Bundlers and Node follow those imports, but a setup that copies only
+  `lib/index.mjs`, such as an extension that ships the package's files
+  without a bundler, must copy the whole `lib/` directory.
 
 ## 0.1.0 (2026-10-26)
 

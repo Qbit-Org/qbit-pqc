@@ -10,6 +10,7 @@ import { createRequire } from 'node:module'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { checkLib, ENTRY_EXPORTS, filesEmbeddingWasm, reachableFrom } from './package-surface.mjs'
 import { pinnedSha256, pinnedWasmSha256 } from './wasm-sha256.mjs'
 
 const require = createRequire(import.meta.url)
@@ -245,6 +246,68 @@ assert.deepEqual(
   'a bare moduleUrl reads the pqc.wasm beside the loader it names'
 )
 assert.deepEqual(bareCompiles, [constants.WASM_SHA256], 'init() compiled that pqc.wasm once, after checking it')
+
+// (11) the ./external-wasm entry resolves by name, through require() too, and
+// shares the main entry's module instance: one published client, and the same
+// classes, constants and functions, everything but init()
+const externalPath = require.resolve('@qbit-oss/pqc/external-wasm')
+log('resolved external-wasm:', externalPath)
+const external = await import('@qbit-oss/pqc/external-wasm')
+const main = await import('@qbit-oss/pqc')
+assert.equal(require('@qbit-oss/pqc/external-wasm').ready, external.ready, 'require() shares ./external-wasm')
+// each entry exports exactly its public API (package-surface.mjs): 0.1.0's
+// names and the documented additions, none of the helpers lib/core.mjs keeps
+for (const [entry, names] of Object.entries(ENTRY_EXPORTS)) {
+  assert.deepEqual(Object.keys(await import(entry)).sort(), [...names].sort(), `${entry} exports its public API`)
+}
+// lib/core.mjs alone holds the implementation, and every file imports the
+// others as package-surface.mjs lists, so no entry carries a second copy
+assert.deepEqual(checkLib(dirname(require.resolve('@qbit-oss/pqc'))), [], 'the built lib/ graph')
+for (const name of Object.keys(external).filter(name => name !== 'init')) {
+  assert.equal(external[name], main[name], `${name} is shared by both entries`)
+}
+assert.notEqual(external.init, main.init, 'each entry has its own init()')
+// no script it reaches embeds pqc.wasm or imports it as a module, while the
+// main entry still embeds it
+const externalLib = dirname(externalPath)
+const externalReach = reachableFrom(externalLib, 'external-wasm.mjs').filter(file => file.endsWith('.mjs'))
+assert.deepEqual(externalReach, ['../wasm/pqc.mjs', './core.mjs', './external-wasm.mjs'], 'lib/external-wasm.mjs reach')
+assert.deepEqual(filesEmbeddingWasm(externalLib, externalReach), [], 'lib/external-wasm.mjs reaches no base64 WASM')
+for (const file of externalReach) {
+  assert.doesNotMatch(
+    readFileSync(join(externalLib, file), 'utf8'),
+    /(?:\bfrom\s*|\bimport\s*\(?\s*)["'][^"']*pqc\.wasm["']/,
+    `${file} does not import pqc.wasm`
+  )
+}
+assert.deepEqual(filesEmbeddingWasm(externalLib, ['index.mjs']), ['index.mjs'], 'lib/index.mjs embeds pqc.wasm')
+
+// (12) its default init() reads the installed wasm/pqc.wasm file and compiles
+// the binary wasm/SHA256SUMS pins, and publishes the client for both entries
+const compiledExternal = []
+const wasmFilesRead = []
+const readFile = fs.readFileSync
+fs.readFileSync = (path, ...rest) => {
+  const name = String(path)
+  if (name.endsWith('.wasm')) wasmFilesRead.push(name.startsWith('file:') ? fileURLToPath(name) : name)
+  return readFile(path, ...rest)
+}
+WebAssembly.instantiate = (source, imports) => {
+  compiledExternal.push(createHash('sha256').update(source).digest('hex'))
+  return instantiate(source, imports)
+}
+let pqc3
+try {
+  pqc3 = await external.init()
+} finally {
+  WebAssembly.instantiate = instantiate
+  fs.readFileSync = readFile
+}
+assert.deepEqual(wasmFilesRead, [wasmBinaryPath], 'external init() reads the installed wasm/pqc.wasm')
+assert.deepEqual(compiledExternal, [sha256(wasmBinaryPath)], 'external init() compiles the pinned pqc.wasm')
+assert.equal(await main.ready(), pqc3, 'the main entry uses the client external init() published')
+const sig3 = main.sign(secretKey, msg)
+assert.equal(external.verify(publicKey, msg, sig3), true, 'sign and verify across entries')
 
 log('ALL CHECKS PASSED')
 console.log(JSON.stringify({ ok: true, pkg: '@qbit-oss/pqc' }))

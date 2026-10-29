@@ -81,6 +81,14 @@ describe('npm package contents policy', () => {
     )
   })
 
+  it('requires the tsup output of every entry and of lib/core.mjs', () => {
+    for (const output of ['lib/index.mjs', 'lib/external-wasm.mjs', 'lib/external-wasm.d.mts', 'lib/core.mjs']) {
+      const paths = REQUIRED_FILES.filter(path => path !== output)
+
+      expect(() => validatePackFiles(paths)).toThrow(`missing required files:\n  ${output}`)
+    }
+  })
+
   it('rejects lib/ files that tsup does not build', () => {
     expect(() => validatePackFiles([...REQUIRED_FILES, 'lib/extra.mjs'])).toThrow(
       /files in lib\/ that tsup does not build:\n  lib\/extra\.mjs/

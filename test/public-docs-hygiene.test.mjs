@@ -145,6 +145,7 @@ describe('published docs and fixtures', () => {
         'docs/signing.md',
         'fixtures/qbit-core-derivation.json',
         'fixtures/slh-dsa-golden.json',
+        'src/core.ts',
         'src/index.ts',
         'vendor/libbitcoinpqc-qbit/UPSTREAM.md',
       ])

@@ -1,5 +1,5 @@
 // The digests that wasm/SHA256SUMS pins. tsup.config.ts and vitest.config.ts
-// define the pqc.wasm one as __PQC_WASM_SHA256__, which src/index.ts exports as
+// define the pqc.wasm one as __PQC_WASM_SHA256__, which src/core.ts exports as
 // constants.WASM_SHA256, so a rebuilt pqc.wasm and its new SHA256SUMS line need
 // no edit to the source. The build fails when there is no such line, or when
 // wasm/pqc.wasm, the file the build embeds, has another digest, so the

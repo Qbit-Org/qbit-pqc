@@ -477,7 +477,7 @@ describe('the glue binds what it uses to the captured copies', () => {
 
   // A key that the wrapper renamed, or the glue reads under another name,
   // would silently fall back to the glue's own copy.
-  it('reads exactly the entries GLUE_INTRINSICS in src/index.ts holds', () => {
+  it('reads exactly the entries GLUE_INTRINSICS in src/core.ts holds', () => {
     const parse = (path: string) =>
       ts.createSourceFile(
         path,
@@ -510,7 +510,7 @@ describe('the glue binds what it uses to the captured copies', () => {
       return [...literals[0]!].sort()
     }
 
-    const wrapper = frozenKeys(parse('src/index.ts'))
+    const wrapper = frozenKeys(parse('src/core.ts'))
     expect(frozenKeys(parse('native/glue-intrinsics.extern-pre.js'))).toEqual(wrapper)
     const pre = parse('native/glue-intrinsics.pre.js')
     const read = calls(pre)

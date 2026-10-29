@@ -1,7 +1,8 @@
 # @qbit-oss/pqc Initialization and Loading
 
 How `init()` shares, publishes and reports a load, where it loads the WASM
-module from, and how to use it in service workers.
+module from, which package entry to import, and how to use it in service
+workers.
 
 ## Initialization
 
@@ -16,7 +17,8 @@ string; `init()`, `init(undefined)` and `init({})` are the same. A call with
 other options loads a new module, so keep the promise from one `init()` call,
 or pass the same functions, instead of new closures on each call.
 
-The named exports use the client of the newest `init()` call that succeeded.
+The named exports use the client of the newest `init()` call that succeeded,
+through either [package entry](#package-entries).
 An earlier call that settles later does not replace it, and a call that fails
 never unpublishes: after a failed re-init, the named exports keep using the
 previous client. Until a call succeeds, they throw a `PqcError` with
@@ -80,13 +82,52 @@ or `undefined` to keep the default: beside `moduleUrl` when it is set, the
 package's `pqc.wasm` file otherwise.
 `wasmBinary` passes the WASM bytes instead, and no file is loaded.
 
+### Package entries
+
+`@qbit-oss/pqc` and `@qbit-oss/pqc/external-wasm` export the same API and
+differ only in where `init()` gets `pqc.wasm` when no option says:
+
+- `@qbit-oss/pqc` (`lib/index.mjs`) embeds a copy of `pqc.wasm`, which
+  `init()` compiles unless `locateFile` or `moduleUrl` says where the file is,
+  or `wasmBinary` passes the bytes. It needs no configuration: no bundler has
+  to emit `pqc.wasm` and no server has to serve it.
+- `@qbit-oss/pqc/external-wasm` (`lib/external-wasm.mjs`) embeds no copy, so a
+  bundle that imports only this entry is about 70 KB smaller (25 KB gzipped).
+  Its `init()` loads `pqc.wasm` from `locateFile`, beside `moduleUrl`, or the
+  package's own `wasm/pqc.wasm`, unless `wasmBinary` passes the bytes. Use it
+  when you serve or package `pqc.wasm` yourself, as a Chrome MV3 extension
+  that passes `locateFile` does. Node reads the package's file from the
+  installed package. Bundlers that handle `new URL('...', import.meta.url)`,
+  such as webpack 5 and Vite's production build, emit the file and point
+  `init()` at their copy; esbuild leaves the URL as written, so with esbuild
+  pass `locateFile` or `moduleUrl`.
+
+Given `locateFile`, a `wasmBinary` that is not `null` or `undefined`, or
+`moduleUrl` without `createModule`, the two `init()` functions do the same
+thing, load errors included.
+
+Both entries are one module instance: each imports `lib/core.mjs`, the one copy
+of the implementation, which no `exports` entry names, and exports only the
+public API, `lib/index.mjs` with its own `init()`. However an app and its
+dependencies import them, with `import` or `require()`, they share the
+published client, `ready()`, `isInitialized()`, the named exports, the
+`PqcError` and `PqcLoadError` classes, `constants` and `errorCodes`, so
+`instanceof` works across entries. Calls through the two entries share a load
+when they load the same way, as with the same `locateFile` function; `init()`
+through `@qbit-oss/pqc`, which compiles the embedded copy, and `init()`
+through `@qbit-oss/pqc/external-wasm`, which loads the file, load separately.
+Code that copies the package's files without a bundler must copy the whole
+`lib/` directory, since the entries import the files beside them.
+
+### Static factory
+
 Service workers, Chrome MV3 extension service workers included, do not allow
 `import()`, which `init()` uses for the loader, so they should statically
 import the Emscripten factory and pass it to `init()`:
 
 <!-- snippet: test/types/mv3-wasm-import.mts -->
 ```ts
-import { init } from '@qbit-oss/pqc'
+import { init } from '@qbit-oss/pqc/external-wasm'
 import createPqcModule from '@qbit-oss/pqc/wasm/pqc.mjs'
 
 const pqc = await init({
@@ -99,11 +140,12 @@ With `createModule`, `moduleUrl` is ignored. A factory of your own that calls
 the package's should pass on the options object `init()` gives it: besides
 `locateFile` and `wasmBinary`, it carries `qbitPqcIntrinsics`, the copies of
 globals the glue builds its heap views and grows memory with (see
-[API details](api.md)). With `locateFile`, as here,
-`pqc.wasm` is loaded from the extension. Without `locateFile` or `wasmBinary`,
-`init()` compiles the embedded copy, so the extension need not ship
-`pqc.wasm`; that form, `init({ createModule: createPqcModule })`, is the
-static-factory recipe the bundler smoke checks.
+[API details](api.md)). With `locateFile`, as here, `pqc.wasm` is loaded from
+the extension, and the external-wasm entry keeps a second copy out of the
+service worker bundle. To ship no `pqc.wasm` file instead, import `init` from
+`@qbit-oss/pqc` and leave out `locateFile` and `wasmBinary`:
+`init({ createModule: createPqcModule })` compiles the embedded copy. That is
+the static-factory recipe the bundler smoke checks, beside this one.
 
 The factory subpath ships its own type declarations, so this snippet
 type-checks under `tsc --strict` with `node16` or `bundler` module resolution.

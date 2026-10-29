@@ -17,10 +17,18 @@ const REQUIRED_FILES = [
   'fixtures/slh-dsa-golden.json',
   'fixtures/qbit-core-signature-vectors.json',
   'fixtures/slh-dsa-golden.json.sha256',
+  'lib/core.d.mts',
+  'lib/core.mjs',
+  'lib/core.mjs.map',
+  'lib/external-wasm.d.mts',
+  'lib/external-wasm.mjs',
+  'lib/external-wasm.mjs.map',
   'lib/index.d.mts',
   'lib/index.mjs',
   'lib/index.mjs.map',
   'package.json',
+  'src/core.ts',
+  'src/external-wasm.ts',
   'src/index.ts',
   'types/pqc.d.mts',
   'vendor/libbitcoinpqc-qbit/LICENSE',
@@ -52,10 +60,22 @@ const ALLOWED_PREFIXES = ['docs/', 'fixtures/', 'lib/', 'src/', 'vendor/libbitco
 const FORBIDDEN_FILES = new Set(['.gitignore', 'pnpm-lock.yaml', 'tsconfig.json', 'tsup.config.ts', 'vitest.config.ts'])
 const FORBIDDEN_PREFIXES = ['.context/', '.github/', 'native/', 'node_modules/', 'scripts/', 'test/']
 
-// Everything tsup writes (tsup.config.ts). lib/ is git-ignored and rebuilt by
-// prepack, so these are the only packed paths that git does not track.
+// Everything tsup writes (tsup.config.ts): the "." and "./external-wasm"
+// entries and lib/core.mjs, the implementation both import by name rather than
+// through a hashed chunk. lib/ is git-ignored and rebuilt by prepack, so these
+// are the only packed paths that git does not track.
 const BUILD_DIR = 'lib/'
-const BUILD_OUTPUTS = new Set(['lib/index.d.mts', 'lib/index.mjs', 'lib/index.mjs.map'])
+const BUILD_OUTPUTS = new Set([
+  'lib/core.d.mts',
+  'lib/core.mjs',
+  'lib/core.mjs.map',
+  'lib/external-wasm.d.mts',
+  'lib/external-wasm.mjs',
+  'lib/external-wasm.mjs.map',
+  'lib/index.d.mts',
+  'lib/index.mjs',
+  'lib/index.mjs.map',
+])
 
 function isAllowed(path) {
   return ALLOWED_FILES.has(path) || ALLOWED_PREFIXES.some(prefix => path.startsWith(prefix))

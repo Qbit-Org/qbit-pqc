@@ -41,7 +41,7 @@ pass it to `init()`:
 
 <!-- snippet: test/types/mv3-wasm-import.mts -->
 ```ts
-import { init } from '@qbit-oss/pqc'
+import { init } from '@qbit-oss/pqc/external-wasm'
 import createPqcModule from '@qbit-oss/pqc/wasm/pqc.mjs'
 
 const pqc = await init({
@@ -50,10 +50,14 @@ const pqc = await init({
 })
 ```
 
-The extension bundle must package `pqc.wasm` next to the loader path resolved by
-`locateFile`. Without `locateFile` (or `wasmBinary`), `init()` compiles the copy
-embedded in `lib/index.mjs`, the same binary `wasm/SHA256SUMS` pins, and loads
-no `pqc.wasm` file.
+The extension bundle must package `pqc.wasm` at the path `locateFile` returns.
+`@qbit-oss/pqc/external-wasm` is the package API without the copy of
+`pqc.wasm` embedded in `lib/index.mjs`, so the service worker bundle carries
+only the file the extension packages. To package no `pqc.wasm` file instead,
+import `init` from `@qbit-oss/pqc` and pass no `locateFile` (or `wasmBinary`):
+`init()` then compiles the embedded copy, the same binary `wasm/SHA256SUMS`
+pins. Both entries share one module instance and one published client (see
+[Package entries](loading.md#package-entries)).
 
 Call `init()` when the service worker starts, and have event handlers
 `await ready()` before they sign or verify: the client does not survive a
@@ -63,17 +67,21 @@ a Worker that an offscreen document starts instead.
 
 The package MV3 smoke packs `@qbit-oss/pqc`, installs that tarball in
 a clean project outside the repository, copies the installed runtime artifacts
-into an extension, and loads them through `chrome-extension://...`. A passing
+into an extension, and loads them through `chrome-extension://...` with the
+recipe above, and fails if any script it copies into the extension carries
+the base64 copy of `pqc.wasm` that `lib/index.mjs` embeds. A passing
 run first validates that the source is the external consumer's installed
 `node_modules/@qbit-oss/pqc` path, then reports
 `artifactSource: installed-packed-tarball`. This prevents a repo-root build
 from masking missing npm files.
 
 Extensions that consume `@qbit-oss/pqc` should add their own build/package gate
-that statically imports both `@qbit-oss/pqc` and `@qbit-oss/pqc/wasm/pqc.mjs`, emits an
-`init` entry with `createModule` and `locateFile`, verifies the manifest's MV3
-CSP, and checks that the SHA-256 of the packaged `wasm/pqc.wasm` matches its
-entry in the package's `wasm/SHA256SUMS`.
+that statically imports both `@qbit-oss/pqc/external-wasm` and
+`@qbit-oss/pqc/wasm/pqc.mjs`, emits an `init` entry with `createModule` and
+`locateFile`, verifies the manifest's MV3 CSP, and checks that the SHA-256 of
+the packaged `wasm/pqc.wasm` matches its entry in the package's
+`wasm/SHA256SUMS`. A bundle that imports only the external-wasm entry contains
+no base64 WASM (a string starting `AGFzbQ`); a gate can require that.
 
 ## CI Commands
 
@@ -110,8 +118,11 @@ A `bundler-smoke` job installs the same Chrome for Testing build and runs
 versions of webpack, esbuild and Vite into throwaway projects outside the
 repository, and builds pages with each bundler's stock settings; every page
 must match the golden vectors through the default `init()` and through
-`init({ createModule })` without requesting `pqc.wasm`. The bundlers are
-downloaded when the smoke runs, which is why it is not part of `verify`.
+`init({ createModule })` without requesting `pqc.wasm`, and through the
+external-wasm entry's `init({ createModule, locateFile })`, which must request
+only the `pqc.wasm` that `locateFile` names and whose build output must embed
+no WASM. The bundlers are downloaded when the smoke runs, which is why it is
+not part of `verify`.
 
 The pinned version lives in `scripts/chrome-for-testing.mjs`. `pnpm test:mv3`
 and `pnpm smoke:bundlers` use only that build for the current platform, at the
@@ -154,8 +165,12 @@ does not run it.
 - Local WASM packaging: ship `pqc.mjs`, `pqc.wasm`, and `SHA256SUMS` from the
   package, together with `LICENSE` and `THIRD_PARTY_NOTICES` for the code they
   contain; do not fetch PQC WASM from a CDN or app backend. `lib/index.mjs`
-  embeds a copy of the pinned `pqc.wasm`, which `init()` compiles unless
-  `locateFile` or `moduleUrl` says where to load the file from.
+  embeds a copy of the pinned `pqc.wasm`, which its `init()` compiles unless
+  `locateFile` or `moduleUrl` says where to load the file from;
+  `lib/external-wasm.mjs` embeds none. Both import `lib/core.mjs`, so an
+  extension that copies the package's files rather than bundling them must
+  copy the whole `lib/` directory, or at least `lib/external-wasm.mjs` with
+  `lib/core.mjs`, which together hold no embedded copy.
 - Reproducibility: `check:wasm` must match committed hashes and
   `check:wasm:repro` must rebuild to the same hashes from the pinned Emscripten
   image.

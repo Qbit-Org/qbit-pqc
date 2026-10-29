@@ -72,8 +72,9 @@ The second fixture was produced by an unmodified qbit Core release binary; see
 - [ ] Run `pnpm test:mv3` with Chrome for Testing. The host must validate an
       external clean-consumer `node_modules/@qbit-oss/pqc` source before the
       smoke reports `artifactSource: installed-packed-tarball`.
-- [ ] Run `pnpm smoke:bundlers` with Chrome for Testing: the default `init()`
-      and the static-factory recipe must pass in every bundler it builds with.
+- [ ] Run `pnpm smoke:bundlers` with Chrome for Testing: the default `init()`,
+      the static-factory recipe and the external-wasm recipe must pass in
+      every bundler it builds with.
 - [ ] Verify the working tree is clean after all checks.
 
 ## Publishing Gate

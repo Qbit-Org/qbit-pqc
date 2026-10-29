@@ -8,7 +8,7 @@
 declare const __PQC_WASM_SHA256__: string
 
 declare module '*/wasm/pqc.mjs' {
-  const createModule: import('./index').PqcWasmModuleFactory
+  const createModule: import('./core').PqcWasmModuleFactory
   export default createModule
 }
 
