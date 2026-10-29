@@ -7,7 +7,10 @@ import { strict as assert } from 'node:assert'
 import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { pinnedSha256, pinnedWasmSha256 } from './wasm-sha256.mjs'
 
 const require = createRequire(import.meta.url)
 const log = (...a) => console.log('[pqc-consumer]', ...a)
@@ -30,13 +33,13 @@ log('resolved factory:', wasmFactoryPath)
 log('resolved wasm:   ', wasmBinaryPath)
 assert.ok(readFileSync(wasmBinaryPath).length > 0, 'wasm binary non-empty')
 // SHA256SUMS, which integrators ship with the wasm artifacts (SECURITY.md),
-// lists the installed factory and binary
+// pins the installed factory and binary: read as the build reads it, by
+// scripts/wasm-sha256.mjs, which the harness copies next to this file and
+// which throws when a file does not have its pinned digest
 const sha256 = path => createHash('sha256').update(readFileSync(path)).digest('hex')
-assert.deepEqual(
-  readFileSync(require.resolve('@qbit-oss/pqc/wasm/SHA256SUMS'), 'utf8').trim().split(/\r?\n/),
-  [`${sha256(wasmFactoryPath)}  pqc.mjs`, `${sha256(wasmBinaryPath)}  pqc.wasm`],
-  'wasm/SHA256SUMS matches the installed artifacts'
-)
+const sumsDir = dirname(require.resolve('@qbit-oss/pqc/wasm/SHA256SUMS'))
+assert.equal(pinnedSha256(sumsDir, 'pqc.mjs'), sha256(wasmFactoryPath), 'wasm/SHA256SUMS pins the installed pqc.mjs')
+assert.equal(pinnedWasmSha256(sumsDir), sha256(wasmBinaryPath), 'wasm/SHA256SUMS pins the installed pqc.wasm')
 assert.equal(require('@qbit-oss/pqc/package.json').name, '@qbit-oss/pqc', './package.json export')
 // License files integrators must ship with the wasm artifacts (SECURITY.md)
 for (const [notice, marker] of [
@@ -182,6 +185,66 @@ for (const vector of signatureVectors.accept) {
   const vectorKey = hex(signatureVectors.keys[vector.key].publicKey)
   assert.equal(verify(vectorKey, hex(vector.message), hex(vector.signature)), true, `fixture signature ${vector.name}`)
 }
+// (10) init({ expectedWasmSha256 }) reads the installed pqc.wasm itself, through
+// locateFile, and compiles it only when it has the digest the package pins;
+// with any other digest it compiles nothing
+assert.equal(constants.WASM_SHA256, sha256(wasmBinaryPath), 'constants.WASM_SHA256 is the installed pqc.wasm digest')
+const checkedCompiles = []
+WebAssembly.instantiate = (source, imports) => {
+  checkedCompiles.push(createHash('sha256').update(source).digest('hex'))
+  return instantiate(source, imports)
+}
+const wrongDigest = '0'.repeat(64)
+let checkedError
+try {
+  const checked = await init({ locateFile: () => wasmBinaryPath, expectedWasmSha256: constants.WASM_SHA256 })
+  assert.deepEqual(Array.from(checked.keygen(entropy).publicKey), Array.from(publicKey), 'checked init keygen matches')
+  await init({ locateFile: () => wasmBinaryPath, expectedWasmSha256: wrongDigest }).catch(error => {
+    checkedError = error
+  })
+} finally {
+  WebAssembly.instantiate = instantiate
+}
+assert.deepEqual(checkedCompiles, [constants.WASM_SHA256], 'init() compiled the checked pqc.wasm, and nothing else')
+assert.equal(checkedError?.name, 'PqcLoadError', 'a wrong expectedWasmSha256 rejects with a PqcLoadError')
+assert.equal(checkedError.kind, 'LOAD_FAILED', 'kind LOAD_FAILED')
+assert.equal(checkedError.url, wasmBinaryPath, 'the PqcLoadError names the file read')
+assert.ok(
+  checkedError.message.includes(constants.WASM_SHA256) && checkedError.message.includes(wrongDigest),
+  'the message names the actual and expected digests'
+)
+
+// (10) with expectedWasmSha256, a bare moduleUrl is resolved as import()
+// resolves it, here to the package's own loader by name, and init() reads and
+// checks the pqc.wasm beside it
+const fs = require('node:fs')
+const fsReadFileSync = fs.readFileSync
+const bareReads = []
+const bareCompiles = []
+// Paths compared as the file system resolves them, so separators and file:
+// URLs do not matter (Windows)
+const resolvedPath = path => (String(path).startsWith('file:') ? fileURLToPath(path) : resolve(String(path)))
+fs.readFileSync = (path, ...rest) => {
+  if (String(path).endsWith('.wasm')) bareReads.push(resolvedPath(path))
+  return fsReadFileSync(path, ...rest)
+}
+WebAssembly.instantiate = (source, imports) => {
+  bareCompiles.push(createHash('sha256').update(source).digest('hex'))
+  return instantiate(source, imports)
+}
+try {
+  const bare = await init({ moduleUrl: '@qbit-oss/pqc/wasm/pqc.mjs', expectedWasmSha256: constants.WASM_SHA256 })
+  assert.deepEqual(Array.from(bare.keygen(entropy).publicKey), Array.from(publicKey), 'bare moduleUrl keygen matches')
+} finally {
+  fs.readFileSync = fsReadFileSync
+  WebAssembly.instantiate = instantiate
+}
+assert.deepEqual(
+  bareReads,
+  [resolvedPath(wasmBinaryPath)],
+  'a bare moduleUrl reads the pqc.wasm beside the loader it names'
+)
+assert.deepEqual(bareCompiles, [constants.WASM_SHA256], 'init() compiled that pqc.wasm once, after checking it')
 
 log('ALL CHECKS PASSED')
 console.log(JSON.stringify({ ok: true, pkg: '@qbit-oss/pqc' }))

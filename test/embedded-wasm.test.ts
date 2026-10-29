@@ -7,13 +7,15 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import goldenFixture from '../fixtures/slh-dsa-golden.json'
+import { pinnedWasmSha256 as readPinnedWasmSha256 } from '../scripts/wasm-sha256.mjs'
 import { constants, init, type PqcClient, type PqcWasmModuleFactory, type PqcWasmModuleOptions } from '../src/index'
 
 const wasmDir = fileURLToPath(new URL('../wasm/', import.meta.url))
 
 // The pqc.wasm entry of wasm/SHA256SUMS, which `pnpm check:wasm` checks against
-// wasm/pqc.wasm and `pnpm check:wasm:repro` against a rebuild of it.
-const pinnedWasmSha256 = /^([0-9a-f]{64}) {2}pqc\.wasm$/m.exec(readFileSync(join(wasmDir, 'SHA256SUMS'), 'utf8'))?.[1]
+// wasm/pqc.wasm and `pnpm check:wasm:repro` against a rebuild of it, read as
+// the build reads it.
+const pinnedWasmSha256 = readPinnedWasmSha256(wasmDir)
 
 // Copies of pqc.wasm carry this custom section, which the shipped file lacks,
 // so the bytes handed to WebAssembly.instantiate show which file was loaded.

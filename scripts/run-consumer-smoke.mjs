@@ -88,6 +88,7 @@ let passed = false
 let failure
 try {
   copyFileSync(join(here, 'consumer-smoke.mjs'), join(packed.consumerDir, 'consumer-smoke.mjs'))
+  copyFileSync(join(here, 'wasm-sha256.mjs'), join(packed.consumerDir, 'wasm-sha256.mjs'))
   await run('node', ['consumer-smoke.mjs'], { cwd: packed.consumerDir })
 
   // Each example runs as a reader runs it: from a project that installed the

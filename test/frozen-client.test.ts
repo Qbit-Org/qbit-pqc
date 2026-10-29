@@ -68,6 +68,8 @@ const CONSTANTS = {
     BITCOIN_PQC_ERROR_SIGNING_LIMIT: -5,
     BITCOIN_PQC_ERROR_OUT_OF_MEMORY: -6,
   },
+  // test/expected-wasm-sha256.test.ts checks the value against wasm/SHA256SUMS.
+  WASM_SHA256: expect.stringMatching(/^[0-9a-f]{64}$/),
 }
 
 // SLH-DSA-SHA2-128s secret key layout: [SK_SEED || SK_PRF || PUB_SEED || root]

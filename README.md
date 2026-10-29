@@ -128,7 +128,9 @@ By default, `init()` compiles a copy of `pqc.wasm` that the build embeds in
 configuration. `moduleUrl`, `locateFile` and `wasmBinary` load the WASM from
 your own location or bytes instead. [Loading options](docs/loading.md#loading)
 describes each one, and [MV3 conformance](docs/mv3-conformance.md) gives the
-CSP and packaging rules for Chrome extensions.
+CSP and packaging rules for Chrome extensions. With
+`expectedWasmSha256: constants.WASM_SHA256`, `init()` refuses WASM bytes with
+any other SHA-256 before compiling them ([Checking pqc.wasm](docs/loading.md#checking-pqcwasm)).
 
 ### Service workers
 
