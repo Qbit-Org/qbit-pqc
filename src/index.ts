@@ -583,7 +583,8 @@ export interface PqcWasmModule {
    * `_qbit_pqc_sign`, also writing `constants.SIGN_STATS_WORDS` uint32 words of
    * signing stats at `statsOut`, when signing fails too. A NULL pointer
    * argument, or a NULL `message` with a nonzero `messageLength`, returns
-   * `BITCOIN_PQC_ERROR_BAD_ARG` and leaves those words unwritten.
+   * `BITCOIN_PQC_ERROR_BAD_ARG` with the words zeroed, or unwritten when
+   * `statsOut` itself is NULL.
    */
   _qbit_pqc_sign_with_stats(
     signatureOut: number,
