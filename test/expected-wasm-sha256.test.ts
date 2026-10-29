@@ -433,6 +433,18 @@ describe('init({ expectedWasmSha256 })', () => {
     expect(compiled()).toEqual([])
   })
 
+  it.each([
+    ['a single-slash file: URL', (path: string) => `file:${path}`],
+    ['an upper-case FILE:// URL', (path: string) => `FILE://${path}`],
+  ])('reads %s from the file system in Node', async (_name, toLocation) => {
+    const pqc = await freshPqc()
+    const location = toLocation(join(wasmDir, 'pqc.wasm'))
+
+    const client = await pqc.init({ locateFile: () => location, expectedWasmSha256: pinnedSha256 })
+
+    expect(client.constants.PK_SIZE).toBe(32)
+  })
+
   it('reads a relative path with a colon in its first segment as a path in Node', async () => {
     const pqc = await freshPqc()
     const path = 'build:v2/pqc.wasm'
@@ -709,8 +721,12 @@ describe('the directory of the moduleUrl loader', () => {
 
     expect(loaderDirectory(pathToFileURL(loader))).toBe(loaderDir)
     expect(loaderDirectory(pathToFileURL(loader).href)).toBe(loaderDir)
-    // A single-slash file: URL is absolute, not a bare specifier.
+    // A single-slash file: URL is absolute, not a bare specifier, and a file:
+    // URL with no slash at all is parsed as import() parses it, not against
+    // the package's own URL.
     expect(loaderDirectory(`file:${loader}`)).toBe(loaderDir)
+    expect(loaderDirectory(`file:${loader.replace(/^\/+/, '')}`)).toBe(loaderDir)
+    expect(loaderDirectory(`FILE://${loader}`)).toBe(loaderDir)
     expect(loaderDirectory('data:text/javascript,export default 0')).toBe('')
     expect(loaderDirectory('https://cdn.example/pqc/pqc.mjs')).toBe('')
   })

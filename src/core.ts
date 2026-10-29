@@ -934,8 +934,9 @@ function preservesSymlinks(): boolean {
 // that is neither a URL nor a path starting with /, ./ or ../, goes through
 // import.meta.resolve, which applies package exports and import maps; without
 // it (a bundler may strip it), init() cannot know what the name resolves to.
-// Anything else is resolved against this module's URL, which a bundler may
-// have rewritten.
+// A URL is parsed on its own, as import() parses it (file:opt/x.mjs is
+// file:///opt/x.mjs); a path starting with /, ./ or ../ is resolved against
+// this module's URL, which a bundler may have rewritten.
 function resolveModuleUrl(moduleUrl: string): URL {
   const bare = isBareSpecifier(moduleUrl)
   if (bare && typeof import.meta.resolve !== 'function') {
@@ -947,7 +948,10 @@ function resolveModuleUrl(moduleUrl: string): URL {
     })
   }
   try {
-    return bare ? new URL(import.meta.resolve(moduleUrl)) : new URL(moduleUrl, import.meta.url)
+    if (bare) {
+      return new URL(import.meta.resolve(moduleUrl))
+    }
+    return isUrl(moduleUrl) ? new URL(moduleUrl) : new URL(moduleUrl, import.meta.url)
   } catch (error) {
     throw unresolvedModuleUrl(moduleUrl, error)
   }
@@ -986,13 +990,12 @@ function isUrl(location: string): boolean {
   }
 }
 
-// Reads pqc.wasm as the loader does: from the file system in Node, where a
-// file:// URL (the loader's own test) or a path names the file, and with
-// fetch() elsewhere. Any other URL in Node, which the loader would also try as
-// a path, is refused.
+// Reads pqc.wasm from the file system in Node, where a file: URL (in any case,
+// with or without //) or a path names the file, and with fetch() elsewhere.
+// Any other URL in Node is refused.
 async function readWasm(url: string): Promise<Uint8Array> {
   if (isNode()) {
-    const isFileUrl = url.startsWith('file://')
+    const isFileUrl = /^file:/i.test(url)
     if (!isFileUrl && isUrl(url)) {
       const scheme = url.slice(0, url.indexOf(':') + 1)
       throw new PqcLoadError(url, undefined, {
