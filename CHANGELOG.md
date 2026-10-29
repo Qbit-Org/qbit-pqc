@@ -3,9 +3,11 @@
 Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
 [RELEASING.md](RELEASING.md)). Below 1.0, breaking changes bump MINOR.
 
-## 0.1.0 (unreleased)
+## 0.1.1 (unreleased)
 
-This is the first release line, and nothing has been published before. Changes
+## 0.1.0 (2026-10-26)
+
+This was the first release, and nothing had been published before it. Changes
 are listed against version `0.0.0`, the unreleased state before the
 pre-release review. **Breaking** marks a change that can make existing
 caller code fail or behave differently.
