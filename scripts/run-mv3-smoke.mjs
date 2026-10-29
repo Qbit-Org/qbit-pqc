@@ -1,11 +1,5 @@
 #!/usr/bin/env node
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,11 +13,8 @@ import {
   chromeSandboxFlags,
   findPinnedChromeForTesting,
 } from './chrome-for-testing.mjs'
-import {
-  assertPackedPackageRoot,
-  removePackedConsumer,
-  stagePackedConsumer,
-} from './stage-packed-consumer.mjs'
+import { filesEmbeddingWasm } from './package-surface.mjs'
+import { assertPackedPackageRoot, removePackedConsumer, stagePackedConsumer } from './stage-packed-consumer.mjs'
 import { installTerminationHandlers } from './termination-handlers.mjs'
 
 const ARTIFACT_SOURCE = 'installed-packed-tarball'
@@ -48,9 +39,7 @@ function parseArgs(argv) {
 
 function rejectBrandedChrome(chromePath) {
   if (chromePath.includes('/Google Chrome.app/')) {
-    throw new Error(
-      'branded Google Chrome is not supported for this smoke; use Chrome for Testing'
-    )
+    throw new Error('branded Google Chrome is not supported for this smoke; use Chrome for Testing')
   }
 }
 
@@ -152,10 +141,7 @@ async function findServiceWorkerTarget(port, timeoutMs) {
 }
 
 async function findExtensionId(profileDir, extensionDir, timeoutMs) {
-  const prefsPaths = [
-    join(profileDir, 'Default', 'Secure Preferences'),
-    join(profileDir, 'Default', 'Preferences'),
-  ]
+  const prefsPaths = [join(profileDir, 'Default', 'Secure Preferences'), join(profileDir, 'Default', 'Preferences')]
   const started = Date.now()
   while (Date.now() - started < timeoutMs) {
     for (const prefsPath of prefsPaths) {
@@ -163,8 +149,7 @@ async function findExtensionId(profileDir, extensionDir, timeoutMs) {
         const prefs = JSON.parse(readFileSync(prefsPath, 'utf8'))
         const settings = prefs.extensions?.settings ?? {}
         for (const [id, setting] of Object.entries(settings)) {
-          const extensionPath =
-            typeof setting.path === 'string' ? resolve(dirname(prefsPath), setting.path) : ''
+          const extensionPath = typeof setting.path === 'string' ? resolve(dirname(prefsPath), setting.path) : ''
           if (
             setting.path === extensionDir ||
             extensionPath === extensionDir ||
@@ -223,9 +208,7 @@ function cdpConnect(webSocketDebuggerUrl) {
     }
     pending.delete(message.id)
     if (message.error) {
-      entry.reject(
-        new Error(`${entry.method} failed: ${message.error.message}: ${message.error.data ?? ''}`)
-      )
+      entry.reject(new Error(`${entry.method} failed: ${message.error.message}: ${message.error.data ?? ''}`))
     } else {
       entry.resolve(message.result)
     }
@@ -233,16 +216,10 @@ function cdpConnect(webSocketDebuggerUrl) {
 
   const open = new Promise((resolveOpen, rejectOpen) => {
     ws.addEventListener('open', resolveOpen, { once: true })
-    ws.addEventListener(
-      'error',
-      event => rejectOpen(event.error ?? new Error('CDP WebSocket failed to open')),
-      { once: true }
-    )
-    ws.addEventListener(
-      'close',
-      () => rejectOpen(new Error('CDP WebSocket closed before opening')),
-      { once: true }
-    )
+    ws.addEventListener('error', event => rejectOpen(event.error ?? new Error('CDP WebSocket failed to open')), {
+      once: true,
+    })
+    ws.addEventListener('close', () => rejectOpen(new Error('CDP WebSocket closed before opening')), { once: true })
   })
 
   ws.addEventListener('error', event => {
@@ -298,8 +275,16 @@ function prepareExtension({ extensionDir, packageRoot }) {
   mkdirSync(join(extensionDir, 'lib'), { recursive: true })
   mkdirSync(join(extensionDir, 'wasm'), { recursive: true })
 
+  // The README recipe imports @qbit-oss/pqc/external-wasm, which imports
+  // lib/core.mjs and lib/shared.mjs. lib/index.mjs, which embeds pqc.wasm, is
+  // not copied. The offscreen document and its worker load the worker client
+  // and handler.
   const artifacts = [
-    ['lib/index.mjs', 'lib/index.mjs'],
+    ['lib/core.mjs', 'lib/core.mjs'],
+    ['lib/shared.mjs', 'lib/shared.mjs'],
+    ['lib/external-wasm.mjs', 'lib/external-wasm.mjs'],
+    ['lib/worker.mjs', 'lib/worker.mjs'],
+    ['lib/worker-handler.mjs', 'lib/worker-handler.mjs'],
     ['wasm/pqc.mjs', 'wasm/pqc.mjs'],
     ['wasm/pqc.wasm', 'wasm/pqc.wasm'],
   ]
@@ -322,6 +307,12 @@ function prepareExtension({ extensionDir, packageRoot }) {
     "chrome.runtime.sendMessage({ type: 'qbit-pqc-mv3-ping' }, response => { document.body.textContent = response?.ok ? 'ready' : 'error'; });\n"
   )
   writeFileSync(
+    join(extensionDir, 'offscreen.html'),
+    '<!doctype html><meta charset="utf-8"><title>Qbit PQC MV3 Offscreen</title><script type="module" src="./offscreen.mjs"></script>\n'
+  )
+  writeFileSync(join(extensionDir, 'offscreen.mjs'), offscreenSource())
+  writeFileSync(join(extensionDir, 'pqc-worker.mjs'), workerSource())
+  writeFileSync(
     join(extensionDir, 'manifest.json'),
     `${JSON.stringify(
       {
@@ -332,6 +323,7 @@ function prepareExtension({ extensionDir, packageRoot }) {
           service_worker: 'background.mjs',
           type: 'module',
         },
+        permissions: ['offscreen'],
         content_security_policy: {
           extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
         },
@@ -341,12 +333,83 @@ function prepareExtension({ extensionDir, packageRoot }) {
     )}\n`
   )
 
+  assertNoEmbeddedWasm(extensionDir)
   return extensionDir
+}
+
+// The extension loads only the external-wasm entry, so none of its scripts may
+// carry the base64 copy of pqc.wasm that lib/index.mjs embeds (its magic
+// number, \0asm, starts with AGFzbQ in base64). That the two entries share one
+// module instance is checked in Node, by the tests and the consumer smoke.
+function assertNoEmbeddedWasm(extensionDir) {
+  const scripts = readdirSync(extensionDir, { recursive: true }).filter(file => /\.(?:m?js|html)$/.test(file))
+  const embedding = filesEmbeddingWasm(extensionDir, scripts)
+  if (embedding.length > 0) {
+    throw new Error(`extension scripts embed pqc.wasm: ${embedding.join(', ')}`)
+  }
+}
+
+// The dedicated worker the offscreen document starts: it serves the client
+// that the external-wasm entry's default init() loads from the extension's
+// wasm/pqc.wasm, as docs/worker.md shows.
+function workerSource() {
+  return `import { init } from './lib/external-wasm.mjs';
+import { servePqcWorker } from './lib/worker-handler.mjs';
+
+servePqcWorker({ client: init() });
+`
+}
+
+// The offscreen document: it starts the worker, and runs each request the
+// service worker relays with chrome.runtime.sendMessage on the worker client,
+// answering with hex, since those messages are JSON.
+function offscreenSource() {
+  return `import { createPqcWorkerClient, PqcError } from './lib/worker.mjs';
+
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+const client = createPqcWorkerClient(new Worker(new URL('./pqc-worker.mjs', import.meta.url), { type: 'module' }));
+
+async function signAndVerify({ secretKeyHex, publicKeyHex, messageHex }) {
+  const secretKey = hexToBytes(secretKeyHex);
+  const message = hexToBytes(messageHex);
+  const signature = await client.sign(secretKey, message);
+  const valid = await client.verify(hexToBytes(publicKeyHex), message, signature);
+  const badKey = new Uint8Array(secretKey);
+  badKey[badKey.length - 1] ^= 0x80;
+  const badKeyError = await client.sign(badKey, message).then(() => undefined, error => error);
+  return {
+    ok: true,
+    signatureHex: bytesToHex(signature),
+    valid,
+    secretKeyAttached: secretKey.length === client.constants.SK_SIZE,
+    badKeyKind: badKeyError instanceof PqcError ? badKeyError.kind : String(badKeyError),
+  };
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== 'qbit-pqc-mv3-offscreen-sign') {
+    return false;
+  }
+  signAndVerify(message).then(sendResponse, error => sendResponse({ ok: false, error: String(error?.stack ?? error) }));
+  return true;
+});
+`
 }
 
 function backgroundSource(artifactSource) {
   return `import createPqcModule from './wasm/pqc.mjs';
-import { constants, init } from './lib/index.mjs';
+import { constants, init } from './lib/external-wasm.mjs';
 import { fixture } from './golden-fixture.mjs';
 
 function hexToBytes(hex) {
@@ -376,6 +439,47 @@ function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(label);
   }
+}
+
+// Relays a request to the offscreen document, retrying, on the missing
+// receiver error only, while its listener is not registered yet.
+async function sendToOffscreen(message) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await chrome.runtime.sendMessage(message);
+    } catch (error) {
+      if (attempt >= 50 || !String(error).includes('Receiving end does not exist')) {
+        throw error;
+      }
+      await new Promise(resolveDelay => setTimeout(resolveDelay, 100));
+    }
+  }
+}
+
+// Signs and verifies \`vector\` in a dedicated worker that an offscreen
+// document starts, since a service worker cannot start one (docs/worker.md).
+async function offscreenWorkerRoundTrip(vector) {
+  if (!(await chrome.offscreen.hasDocument())) {
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['WORKERS'],
+      justification: 'Sign with @qbit-oss/pqc off the service worker thread',
+    });
+  }
+  const response = await sendToOffscreen({
+    type: 'qbit-pqc-mv3-offscreen-sign',
+    secretKeyHex: vector.secretKeyHex,
+    publicKeyHex: vector.publicKeyHex,
+    messageHex: vector.messageHex,
+  });
+  if (!response?.ok) {
+    throw new Error(\`offscreen worker round trip failed: \${response?.error}\`);
+  }
+  assertEqual(response.signatureHex, vector.signatureHex, \`\${vector.name} offscreen worker signature mismatch\`);
+  assertEqual(response.valid, true, \`\${vector.name} offscreen worker verification failed\`);
+  assertEqual(response.secretKeyAttached, true, 'the worker client detached the secret key');
+  assertEqual(response.badKeyKind, 'BAD_KEY', 'the worker client did not rebuild the PqcError');
+  return { ok: true, vector: vector.name };
 }
 
 async function runSmoke() {
@@ -413,14 +517,18 @@ async function runSmoke() {
     vectorNames.push(vector.name);
   }
 
+  const offscreenWorker = await offscreenWorkerRoundTrip(fixture.vectors[0]);
+
   return {
     ok: true,
     artifactSource: ${JSON.stringify(artifactSource)},
     env: 'chrome-mv3-service-worker',
     package: '@qbit-oss/pqc',
+    entry: '@qbit-oss/pqc/external-wasm',
     algorithm: fixture.algorithm,
     vectorCount: vectorNames.length,
     vectorNames,
+    offscreenWorker,
     wasmHeapBytes: client.wasmHeapBytes(),
   };
 }
@@ -529,9 +637,7 @@ try {
   const chromeUnavailable = new Promise((_, rejectUnavailable) => {
     chrome.once('error', rejectUnavailable)
     chrome.once('exit', (code, signal) => {
-      rejectUnavailable(
-        new Error(`Chrome exited before startup completed (code ${code}, signal ${signal})`)
-      )
+      rejectUnavailable(new Error(`Chrome exited before startup completed (code ${code}, signal ${signal})`))
     })
   })
   chrome.stderr.on('data', chunk => {
@@ -573,6 +679,9 @@ try {
   }
   if (result.artifactSource !== ARTIFACT_SOURCE) {
     throw new Error(`MV3 smoke reported unexpected artifact source: ${result.artifactSource}`)
+  }
+  if (result.offscreenWorker?.ok !== true) {
+    throw new Error(`MV3 smoke ran no offscreen worker round trip: ${JSON.stringify(result.offscreenWorker)}`)
   }
 
   mkdirSync(dirname(outPath), { recursive: true })
@@ -626,10 +735,7 @@ try {
   if (interrupted) {
     // The signal handler owns the conventional 130/143 exit after shared cleanup.
   } else if (failure && cleanupErrors.length > 0) {
-    throw new AggregateError(
-      [failure, ...cleanupErrors],
-      'packed-tarball MV3 smoke and cleanup both failed'
-    )
+    throw new AggregateError([failure, ...cleanupErrors], 'packed-tarball MV3 smoke and cleanup both failed')
   } else if (failure) {
     throw failure
   } else if (cleanupErrors.length > 0) {

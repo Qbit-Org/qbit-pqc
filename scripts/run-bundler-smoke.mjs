@@ -3,13 +3,16 @@
 //
 // Packs the package and installs the tarball, with exact versions of webpack,
 // esbuild and Vite, into throwaway projects outside the repository. Each
-// bundler builds, or for Vite's dev server serves, two pages made from
+// bundler builds, or for Vite's dev server serves, three pages made from
 // scripts/bundler-smoke.mjs, with its stock settings: no config file, loader
-// or plugin. One page loads the package with the default init(), the other
-// with the README's static-factory recipe, init({ createModule }) with the
-// factory from @qbit-oss/pqc/wasm/pqc.mjs. The pinned Chrome for Testing loads
-// every page, which must match the golden vectors without requesting
-// pqc.wasm: both recipes compile the copy embedded in lib/index.mjs.
+// or plugin. One page loads the package with the default init(), one with the
+// README's static-factory recipe, init({ createModule }) with the factory from
+// @qbit-oss/pqc/wasm/pqc.mjs, and one with that recipe's init() from
+// @qbit-oss/pqc/external-wasm and a locateFile for the pqc.wasm the page
+// serves. The pinned Chrome for Testing loads every page, which must match the
+// golden vectors. The first two must not request pqc.wasm: they compile the
+// copy embedded in lib/index.mjs. The external-wasm page must request only the
+// file its locateFile names, and its build output must not embed pqc.wasm.
 import { spawn } from 'node:child_process'
 import {
   copyFileSync,
@@ -17,6 +20,7 @@ import {
   mkdtempSync,
   readFile,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -34,11 +38,8 @@ import {
   chromeSandboxFlags,
   findPinnedChromeForTesting,
 } from './chrome-for-testing.mjs'
-import {
-  assertPackedPackageRoot,
-  packValidatedTarball,
-  removePackedConsumer,
-} from './stage-packed-consumer.mjs'
+import { filesEmbeddingWasm } from './package-surface.mjs'
+import { assertPackedPackageRoot, packValidatedTarball, removePackedConsumer } from './stage-packed-consumer.mjs'
 import { installTerminationHandlers } from './termination-handlers.mjs'
 
 // Exact bundler versions, installed with npm's --before so that their own
@@ -54,8 +55,9 @@ export const TOOLCHAINS = {
   vite7: { vite: '7.3.7' },
 }
 
-// The entry of each page: the README's default init(), and its static-factory
-// recipe without the MV3-only locateFile.
+// The entry of each page: the README's default init(), its static-factory
+// recipe without the MV3-only locateFile, and its MV3 recipe with init() from
+// @qbit-oss/pqc/external-wasm and a locateFile for the page's own pqc.wasm.
 export const RECIPES = {
   default: [
     "import { init } from '@qbit-oss/pqc'",
@@ -70,7 +72,19 @@ export const RECIPES = {
     '',
     "runSmoke('factory', () => init({ createModule: createPqcModule }))",
   ],
+  external: [
+    "import { init } from '@qbit-oss/pqc/external-wasm'",
+    "import createPqcModule from '@qbit-oss/pqc/wasm/pqc.mjs'",
+    "import { runSmoke } from './smoke.js'",
+    '',
+    "runSmoke('external', () => init({ createModule: createPqcModule, locateFile: path => `/${path}` }))",
+  ],
 }
+
+// The pqc.wasm each recipe's page requests: none for the embedded copy. Every
+// page serves the package's file at /pqc.wasm, from Vite's public directory or
+// copied beside the build output.
+const WASM_REQUESTS = { default: [], factory: [], external: ['/pqc.wasm'] }
 
 // Each target builds a recipe's page into a directory to serve, or serves the
 // page itself.
@@ -250,7 +264,7 @@ function pageHtml(script, type) {
 
 // A throwaway project with one toolchain and the packed package installed, and
 // a directory per recipe holding its page: index.html (Vite's entry), main.js,
-// smoke.js and golden-fixture.js.
+// smoke.js, golden-fixture.js and public/pqc.wasm.
 async function prepareProject(stage, toolchain, tarballPath) {
   const project = join(stage, toolchain)
   mkdirSync(project)
@@ -297,10 +311,9 @@ async function prepareProject(stage, toolchain, tarballPath) {
     writeFileSync(join(page, 'index.html'), pageHtml('./main.js', 'module'))
     writeFileSync(join(page, 'main.js'), `${lines.join('\n')}\n`)
     copyFileSync(join(scriptDir, 'bundler-smoke.mjs'), join(page, 'smoke.js'))
-    writeFileSync(
-      join(page, 'golden-fixture.js'),
-      `export const fixture = ${JSON.stringify(fixture, null, 2)}\n`
-    )
+    writeFileSync(join(page, 'golden-fixture.js'), `export const fixture = ${JSON.stringify(fixture, null, 2)}\n`)
+    mkdirSync(join(page, 'public'))
+    copyFileSync(join(packageRoot, 'wasm/pqc.wasm'), join(page, 'public', 'pqc.wasm'))
   }
   return { dir: project, vectorCount: fixture.vectors.length }
 }
@@ -323,6 +336,7 @@ async function buildWithWebpack(project, recipe) {
     { cwd: project }
   )
   writeFileSync(join(outDir, 'index.html'), pageHtml('main.js', 'classic'))
+  copyFileSync(join(project, recipe, 'public', 'pqc.wasm'), join(outDir, 'pqc.wasm'))
   return outDir
 }
 
@@ -342,6 +356,7 @@ async function buildWithEsbuild(project, recipe, format) {
     { cwd: project }
   )
   writeFileSync(join(outDir, 'index.html'), pageHtml('main.js', format === 'esm' ? 'module' : 'classic'))
+  copyFileSync(join(project, recipe, 'public', 'pqc.wasm'), join(outDir, 'pqc.wasm'))
   return outDir
 }
 
@@ -523,7 +538,7 @@ function cdpConnect(webSocketDebuggerUrl) {
 }
 
 // Loads `url` in a new tab and waits for the page's report. Throws unless it
-// passed every golden vector without requesting a .wasm file.
+// passed every golden vector and requested exactly the recipe's .wasm files.
 async function runPage(chrome, url, recipe, vectorCount, timeoutMs) {
   const tab = await fetchJson(`http://127.0.0.1:${chrome.port}/json/new?about:blank`, 5000, {
     method: 'PUT',
@@ -566,8 +581,11 @@ async function runPage(chrome, url, recipe, vectorCount, timeoutMs) {
       throw new Error(`page checked ${report.vectorNames.length} of ${vectorCount} vectors`)
     }
     const wasmRequests = [...requests.values()].filter(requested => /\.wasm(?:[?#]|$)/.test(requested))
-    if (wasmRequests.length > 0) {
-      throw new Error(`page requested ${wasmRequests.join(', ')} instead of the embedded copy`)
+    const expected = WASM_REQUESTS[recipe].map(path => new URL(path, url).href)
+    if (JSON.stringify(wasmRequests) !== JSON.stringify(expected)) {
+      throw new Error(
+        `page requested ${wasmRequests.join(', ') || 'no .wasm file'}, expected ${expected.join(', ') || 'none'}`
+      )
     }
     return report.vectorNames
   } finally {
@@ -576,12 +594,26 @@ async function runPage(chrome, url, recipe, vectorCount, timeoutMs) {
   }
 }
 
+// The built scripts of a page that loads @qbit-oss/pqc/external-wasm must not
+// carry the base64 copy of pqc.wasm that lib/index.mjs embeds.
+function assertNoEmbeddedWasm(outDir) {
+  const scripts = readdirSync(outDir, { recursive: true }).filter(file => /\.m?js$/.test(file))
+  const embedding = filesEmbeddingWasm(outDir, scripts)
+  if (scripts.length === 0 || embedding.length > 0) {
+    throw new Error(`build output embeds pqc.wasm: ${embedding.join(', ') || 'no scripts built'}`)
+  }
+}
+
 async function runTarget(chrome, target, project, recipe, timeoutMs) {
   const label = `${target.name} ${recipe}`
   let page
   try {
     if (target.build) {
-      page = await serveDirectory(await target.build(project.dir, recipe))
+      const outDir = await target.build(project.dir, recipe)
+      if (recipe === 'external') {
+        assertNoEmbeddedWasm(outDir)
+      }
+      page = await serveDirectory(outDir)
     } else {
       page = await target.serve(project.dir, recipe, timeoutMs)
     }

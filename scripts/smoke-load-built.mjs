@@ -1,6 +1,15 @@
 #!/usr/bin/env node
+import { fileURLToPath } from 'node:url'
+
 import { init, constants } from '../lib/index.mjs'
 import createPqcModule from '../wasm/pqc.mjs'
+import { checkLib } from './package-surface.mjs'
+
+// lib/core.mjs alone holds the implementation (scripts/package-surface.mjs).
+const libProblems = checkLib(fileURLToPath(new URL('../lib/', import.meta.url)))
+if (libProblems.length > 0) {
+  throw new Error(`built lib/ is wrong:\n${libProblems.join('\n')}`)
+}
 
 // The client does not expose its WASM module, so this script builds the
 // module itself and passes it to init().

@@ -4,12 +4,12 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { runInNewContext } from 'node:vm'
 
-import ts from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as Pqc from '../src/index'
 import createPqcModule from '../wasm/pqc.mjs'
 import { freshClient } from './fresh-client'
+import { importSourceCopy } from './source-copy'
 
 type PqcExports = typeof Pqc
 type PqcModuleOptions = Pqc.PqcWasmModuleOptions
@@ -17,8 +17,8 @@ type PqcModuleOptions = Pqc.PqcWasmModuleOptions
 const wasmDir = fileURLToPath(new URL('../wasm/', import.meta.url))
 const SK = new Uint8Array(64)
 
-// A copy of the package with no init() called yet: each test starts with no
-// client published and no load to share.
+// A copy of the package's "." entry with no init() called yet: each test
+// starts with no client published and no load to share.
 async function freshPqc(): Promise<PqcExports> {
   vi.resetModules()
   return (await import('../src/index')) as PqcExports
@@ -155,11 +155,7 @@ describe('init() with the same options', () => {
     const fromBytes = await pqc.init({ wasmBinary })
     expectSameClient(fromBytes, other.client, false)
     expectSameClient(await pqc.init({ wasmBinary }), fromBytes)
-    expectSameClient(
-      await pqc.init({ wasmBinary: readFileSync(join(wasmDir, 'pqc.wasm')) }),
-      fromBytes,
-      false
-    )
+    expectSameClient(await pqc.init({ wasmBinary: readFileSync(join(wasmDir, 'pqc.wasm')) }), fromBytes, false)
   })
 
   it('treats init(), init(undefined) and init({}) as the same options', async () => {
@@ -323,9 +319,7 @@ describe('a load failure in Node', () => {
     const { cause } = error as Pqc.PqcLoadError
     expect(cause).toBeInstanceOf(Error)
     expect(String(cause)).toContain(`${dir}/pqc.wasm`)
-    expect((error as Error).message).toBe(
-      `init() could not load ${dir}/pqc.wasm: ${(cause as Error).message}`
-    )
+    expect((error as Error).message).toBe(`init() could not load ${dir}/pqc.wasm: ${(cause as Error).message}`)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -408,9 +402,7 @@ describe('a load failure with no file to name', () => {
     // Emscripten's abort, which names the refusal.
     const { cause } = error as Pqc.PqcLoadError
     expect(String(cause)).toContain('Refused to compile')
-    expect((error as Error).message).toBe(
-      `init() could not load the WASM module: ${(cause as Error).message}`
-    )
+    expect((error as Error).message).toBe(`init() could not load the WASM module: ${(cause as Error).message}`)
   })
 
   it("rejects the default init() with a PqcLoadError when the package's loader cannot be imported", async () => {
@@ -457,8 +449,7 @@ describe('a load failure with no file to name', () => {
     expect(error).toMatchObject({
       url: undefined,
       message:
-        'init() could not load the WASM module: ' +
-        'pqc wasm public-key size does not match TypeScript constants',
+        'init() could not load the WASM module: ' + 'pqc wasm public-key size does not match TypeScript constants',
     })
     expect(pqc.isInitialized()).toBe(false)
   })
@@ -472,7 +463,7 @@ describe('a load failure with no file to name', () => {
 })
 
 // Outside Node, init() requests a failed http(s) or chrome-extension: URL once
-// more, only to read an error status. These tests evaluate src/index.ts again
+// more, only to read an error status. These tests evaluate src/core.ts again
 // with `process` shadowed in the module, so it takes that path, and with fetch
 // stubbed.
 describe('the status of a failed load outside Node', () => {
@@ -481,14 +472,11 @@ describe('the status of a failed load outside Node', () => {
   async function browserPqc(): Promise<
     PqcExports & { errorResponseStatus(url: string, base?: string): Promise<number | undefined> }
   > {
-    const source = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
     copies += 1
-    const { outputText } = ts.transpileModule(
-      `const process = undefined\n${source}\nexport { errorResponseStatus }\n// copy ${copies}\n`,
-      { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }
+    return importSourceCopy(
+      `browser ${copies}`,
+      source => `const process = undefined\n${source}\nexport { errorResponseStatus }\n`
     )
-    const url = `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
-    return import(/* @vite-ignore */ url)
   }
 
   // A factory that fails the way Emscripten's does when it cannot load the
@@ -557,14 +545,12 @@ describe('the status of a failed load outside Node', () => {
     vi.stubGlobal('fetch', fetchStub)
 
     let settled: unknown
-    const failed = pqc
-      .init({ createModule: failingLoad('https://cdn.example/pqc/', cause), locateFile: located })
-      .then(
-        () => undefined,
-        (reason: unknown) => {
-          settled = reason
-        }
-      )
+    const failed = pqc.init({ createModule: failingLoad('https://cdn.example/pqc/', cause), locateFile: located }).then(
+      () => undefined,
+      (reason: unknown) => {
+        settled = reason
+      }
+    )
     await vi.advanceTimersByTimeAsync(9999)
     expect(fetchStub).toHaveBeenCalledTimes(1)
     expect(settled).toBeUndefined()
@@ -604,9 +590,7 @@ describe('the status of a failed load outside Node', () => {
 
     expect(error).toMatchObject({ url: '/nope/pqc.wasm', status: 404 })
     expect(fetchStub).toHaveBeenCalledTimes(1)
-    expect(String((fetchStub.mock.calls[0] as unknown as [URL])[0])).toBe(
-      'https://app.example/nope/pqc.wasm'
-    )
+    expect(String((fetchStub.mock.calls[0] as unknown as [URL])[0])).toBe('https://app.example/nope/pqc.wasm')
   })
 
   it('requests nothing when the loader had the bytes and they failed to compile', async () => {

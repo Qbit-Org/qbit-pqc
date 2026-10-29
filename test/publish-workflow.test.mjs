@@ -2,8 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-const workflow = name =>
-  readFileSync(new URL(`../.github/workflows/${name}`, import.meta.url), 'utf8')
+const workflow = name => readFileSync(new URL(`../.github/workflows/${name}`, import.meta.url), 'utf8')
 const ci = workflow('ci.yml')
 const publish = workflow('publish.yml')
 
@@ -69,7 +68,12 @@ function runCommands(text) {
       block.push(next)
     }
     const indent = Math.min(...block.filter(next => next.trim() !== '').map(next => next.search(/\S/)))
-    return [block.map(next => next.slice(indent)).join('\n').trimEnd()]
+    return [
+      block
+        .map(next => next.slice(indent))
+        .join('\n')
+        .trimEnd(),
+    ]
   })
 }
 
@@ -135,10 +139,25 @@ describe('publish workflow', () => {
     const commands = [...runCommands(build), ...runCommands(smoke)]
     const verify = runCommands(jobs(ci).verify)
     expect(verify).toContain('pnpm smoke:consumer')
+    // Formatting is not a tarball integrity gate, so publish.yml need not
+    // rerun CI's format check.
+    expect(verify).toContain('pnpm format:check')
+    const gates = verify.filter(command => command !== 'pnpm format:check')
     // Verbatim, or with options added, as build's install adds engine-strict.
-    expect(
-      verify.filter(command => !commands.some(run => run === command || run.startsWith(`${command} --`)))
-    ).toEqual([])
+    expect(gates.filter(command => !commands.some(run => run === command || run.startsWith(`${command} --`)))).toEqual(
+      []
+    )
+  })
+
+  // `pnpm verify` is the offline subset of CI's verify job, in CI's order
+  // (CONTRIBUTING.md): everything but the install, the vendored-source
+  // comparison with the upstream fetch (MANIFEST only) and the Docker rebuild.
+  it("keeps pnpm verify on CI's verify job", () => {
+    const { scripts } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+    const offline = runCommands(jobs(ci).verify)
+      .filter(command => command !== 'pnpm install --frozen-lockfile' && command !== 'pnpm check:wasm:repro')
+      .map(command => (/^pnpm check:vendor --upstream /m.test(command) ? 'pnpm check:vendor' : command))
+    expect(scripts.verify.split(' && ')).toEqual(offline)
   })
 
   it('pins every action to a full commit SHA, and an action CI uses to its CI pin', () => {

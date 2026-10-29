@@ -2,9 +2,27 @@
 
 Source: `Qbit-Org/qbit-libbitcoinpqc`
 
-Pinned commit: `70008b9362f4f35f3be94283173fb41d28badb38`
+Pinned commit: `edcea6cb89941fd60c8919eee74ec490ec914489`
 
-The pinned commit is upstream `main` after Qbit-Org/qbit-libbitcoinpqc#10
+The pinned commit is upstream `main` after Qbit-Org/qbit-libbitcoinpqc#14 was
+squash-merged. Since the previous pin, `70008b9362f4f35f3be94283173fb41d28badb38`,
+four vendored files changed, and none of the changes alters what this package
+builds:
+
+- `sphincsplus/ref/sha2.c` and `sphincsplus/ref/sha2.h` gain test-only
+  functions that report which SHA-2 implementation is selected
+  (Qbit-Org/qbit-libbitcoinpqc#4). They are compiled only with
+  `BITCOINPQC_ENABLE_TEST_HELPERS`, which the WASM build does not define.
+- `sphincsplus/ref/hash_sha2.c` and `sphincsplus/ref/sign.c` rewrite the
+  `secure_zero_local` loop so that its counter does not wrap past zero, which
+  UBSan's unsigned-overflow check reports (Qbit-Org/qbit-libbitcoinpqc#14). It
+  still zeroes the same bytes.
+
+The other upstream changes in that range touch CI, Rust tests and docs, and
+`sphincsplus/sha2-avx2/`, none of which is vendored. Keys, signatures and
+verification results are unchanged.
+
+The previous pin was upstream `main` after Qbit-Org/qbit-libbitcoinpqc#10
 (fixes Qbit-Org/qbit-libbitcoinpqc#9) was squash-merged; its tree is identical
 to that pull request's reviewed head
 `55b20eb4a45f113b3455ba207674a3b825cf0f53`. It makes `bitcoin_pqc_sign` report

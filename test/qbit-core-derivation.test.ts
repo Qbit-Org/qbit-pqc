@@ -3,13 +3,7 @@ import { createHash, createHmac } from 'node:crypto'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import derivationFixture from '../fixtures/qbit-core-derivation.json'
-import {
-  constants,
-  deriveP2mrDescriptorKey,
-  derivePQCKey,
-  init,
-  type PqcClient,
-} from '../src/index'
+import { constants, deriveP2mrDescriptorKey, derivePQCKey, init, type PqcClient } from '../src/index'
 
 interface QbitCoreDerivationFixture {
   schemaVersion: number
@@ -174,19 +168,14 @@ describe('qbit Core PQC derivation contract', () => {
   })
 
   it('covers canonical descriptor, recovery, and primitive boundary cases', () => {
-    const descriptorVectors = fixture.vectors.filter(vector =>
-      vector.descriptorTemplate.startsWith('mr(pk(pqc(')
-    )
+    const descriptorVectors = fixture.vectors.filter(vector => vector.descriptorTemplate.startsWith('mr(pk(pqc('))
 
     expect(descriptorVectors.length).toBeGreaterThanOrEqual(3)
     expect(
-      descriptorVectors.filter(vector => vector.coreBehavior === 'canonical_descriptor_generation')
-        .length
+      descriptorVectors.filter(vector => vector.coreBehavior === 'canonical_descriptor_generation').length
     ).toBeGreaterThanOrEqual(3)
     expect(
-      fixture.vectors.some(
-        vector => vector.coreBehavior === 'recovery_match_only' && vector.hkdf.change === 1
-      )
+      fixture.vectors.some(vector => vector.coreBehavior === 'recovery_match_only' && vector.hkdf.change === 1)
     ).toBe(true)
     expect(fixture.vectors.some(vector => vector.hkdf.index === 0xffffffff)).toBe(true)
     expect(fixture.vectors.some(vector => vector.hkdf.index > 0)).toBe(true)
@@ -219,16 +208,9 @@ describe('qbit Core PQC derivation contract', () => {
       const pair = client.keygen(entropy)
       expect(bytesToHex(pair.publicKey)).toBe(vector.publicKeyHex)
       expect(bytesToHex(pair.secretKey)).toBe(vector.secretKeyHex)
-      expect(bytesToHex(pair.secretKey.slice(constants.SK_SIZE - constants.PK_SIZE))).toBe(
-        vector.publicKeyHex
-      )
+      expect(bytesToHex(pair.secretKey.slice(constants.SK_SIZE - constants.PK_SIZE))).toBe(vector.publicKeyHex)
 
-      const derived = derivePQCKey(
-        masterSeed,
-        vector.hkdf.account,
-        vector.hkdf.change,
-        vector.hkdf.index
-      )
+      const derived = derivePQCKey(masterSeed, vector.hkdf.account, vector.hkdf.change, vector.hkdf.index)
       expect(bytesToHex(derived.pk32)).toBe(vector.publicKeyHex)
       expect(bytesToHex(derived.sk64)).toBe(vector.secretKeyHex)
       expect(derived.pk32).toEqual(pair.publicKey)
@@ -247,9 +229,7 @@ describe('qbit Core PQC derivation contract', () => {
       const masterSeed = hexToBytes(vector.masterSeedHex)
       if (vector.coreBehavior === 'primitive_only') {
         // Its HKDF index is above every descriptor range position.
-        expect(() => deriveP2mrDescriptorKey(masterSeed, vector.hkdf.index), vector.name).toThrow(
-          RangeError
-        )
+        expect(() => deriveP2mrDescriptorKey(masterSeed, vector.hkdf.index), vector.name).toThrow(RangeError)
         continue
       }
 

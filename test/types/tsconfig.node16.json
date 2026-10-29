@@ -7,7 +7,8 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": false,
-    "types": []
+    "types": [],
+    "paths": { "@qbit-oss/protocol": ["./qbit-js/protocol.d.mts"] }
   },
-  "files": ["mv3-wasm-import.mts"]
+  "include": ["*.mts"]
 }

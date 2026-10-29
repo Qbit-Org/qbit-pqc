@@ -5,6 +5,10 @@
 #include "libbitcoinpqc/bitcoinpqc.h"
 #include "libbitcoinpqc/slh_dsa.h"
 
+/* The words qbit_pqc_sign_with_stats writes to stats_out: FORS+C attempts and
+ * cap, one attempt count per WOTS+C layer, then four WOTS+C totals. */
+#define QBIT_PQC_SIGN_STATS_WORDS (2 + BITCOIN_PQC_SIGN_WOTSC_LAYERS + 4)
+
 int qbit_pqc_public_key_size(void) {
     return (int)bitcoin_pqc_public_key_size();
 }
@@ -81,6 +85,11 @@ int qbit_pqc_sign_with_stats(
     const uint8_t *message,
     size_t message_len
 ) {
+    /* Zeroed even when the arguments are rejected below, so every return
+     * leaves stats_out written. */
+    if (stats_out) {
+        memset(stats_out, 0, QBIT_PQC_SIGN_STATS_WORDS * sizeof(*stats_out));
+    }
     if (!signature_out || !stats_out || !secret_key || (!message && message_len != 0)) {
         return BITCOIN_PQC_ERROR_BAD_ARG;
     }

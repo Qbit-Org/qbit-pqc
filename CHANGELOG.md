@@ -3,9 +3,211 @@
 Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
 [RELEASING.md](RELEASING.md)). Below 1.0, breaking changes bump MINOR.
 
-## 0.1.0 (unreleased)
+## 0.1.1 (2026-10-29)
 
-This is the first release line, and nothing has been published before. Changes
+### API
+
+- A `PqcError` from `signWithStats` carries `stats` only when signing had
+  started: every `SIGNING_LIMIT` error, and a `BAD_SIGNATURE` from a failed
+  signature or self-check. Before, every native failure carried a `stats`
+  object, all zeros when signing failed before it started, which read like an
+  attempt with caps of 0. The wrapper also zeroes the stats buffer before the
+  native call, so a failure that returns without writing the stats can no
+  longer report leftover WASM heap bytes.
+
+  **Compatibility:** `stats` is now `undefined` on `BAD_KEY` (for example a
+  secret key whose stored root does not match its seeds), `OUT_OF_MEMORY`, a
+  `BAD_SIGNATURE` from deriving the signing randomness, and any other failure
+  before signing starts, so code that reads `error.stats.<field>`
+  unconditionally must check for `undefined` first. `SIGNING_LIMIT` errors,
+  the only ones documented to carry stats, keep them, and maintainers chose to
+  ship this in a patch release.
+- `derivePQCKey` and `deriveP2mrDescriptorKey`, on the client and as named
+  exports, also read the key pair as `publicKey` and `secretKey`, the names
+  `keygen` uses: non-enumerable getters, with no setter, that return whatever
+  the result's `pk32` and `sk64`, which stay, hold when read. They are the
+  same `Uint8Array`s, not copies, so zeroing either name zeroes both. Both
+  functions now return the new type `PqcDerivedKeyPair`, which extends the
+  unchanged `PqcDerivedKey` with the two read-only fields.
+  **Compatibility:** the result's runtime shape, enumeration and serialization
+  are unchanged from 0.1.0: `Object.keys`, `JSON.stringify` and deep equality
+  see only `{ pk32, sk64 }`. A spread, `Object.assign` or
+  `structuredClone`/`postMessage` copy of a derived key has only `pk32` and
+  `sk64`, although TypeScript still types the copy as having `publicKey` and
+  `secretKey`, so read the aliases from the original result or copy `pk32` and
+  `sk64`. TypeScript code that implements `PqcClient` itself, such as a fake
+  client, must now return the aliases from its derive methods; the maintainers
+  chose to ship this in a patch release.
+- New `./fixtures/*` export: the conformance fixtures the package already
+  ships resolve by name, such as
+  `@qbit-oss/pqc/fixtures/qbit-core-signature-vectors.json` and the
+  `slh-dsa-golden.json.sha256` sidecar, so tests can check keys and signatures
+  against the recorded vectors. Before, resolving one threw
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. The pattern reaches only files in
+  `fixtures/`.
+- The Emscripten glue builds `HEAPU8` and its other heap views, when the
+  module is instantiated and whenever a call grows WASM memory, with
+  typed-array constructors captured when the package loads, and computes how
+  far to grow with captured `Math` functions. Before the factory resolves, it
+  also switches the memory to `WebAssembly.Memory.prototype`'s `buffer` getter
+  and `grow` method captured the same way, and rebuilds the views through
+  them. It used the globals and the prototype of the moment, so code that
+  replaced `globalThis.Uint8Array` or `Math`, or patched
+  `WebAssembly.Memory.prototype`, after the package loaded chose the view the
+  wrapper copies inputs and secret keys into and out of, and how much memory
+  a call grew; once `init()` has settled, it no longer can. `init()` passes the package's copies to the factory as
+  `qbitPqcIntrinsics`, a new optional member of `PqcWasmModuleOptions`, for
+  the default loader, `moduleUrl` and `createModule`. A factory that wraps the
+  package's should pass it on; for any entry it does not get as a function,
+  the glue uses its own copy, taken when it is imported. Not covered: the
+  growth computation reads `%TypedArray%.prototype.length` and
+  `ArrayBuffer.prototype.byteLength` through the prototypes, so patching
+  those accessors can still change how far a call grows memory, or make it
+  fail.
+  [Qbit-Org/qbit-pqc#10](https://github.com/Qbit-Org/qbit-pqc/issues/10)
+  tracks these reads. Keys, signatures and the module's exports are unchanged.
+- New entry point `@qbit-oss/pqc/external-wasm`: the same API as
+  `@qbit-oss/pqc` without the copy of `pqc.wasm` that `lib/index.mjs` embeds
+  as base64, which keeps about 70 KB out of a bundle that imports only this
+  entry. Its `init()` loads `pqc.wasm` from `locateFile`, beside `moduleUrl`,
+  or the package's own `wasm/pqc.wasm` file, unless `wasmBinary` passes the
+  bytes. The two entries share one module instance: one published client,
+  `ready()` and `isInitialized()`, the same named exports, `PqcError` and
+  `PqcLoadError` classes, `constants` and `errorCodes`, whichever an app or
+  its dependencies import. `@qbit-oss/pqc` behaves as before. The README's
+  MV3 recipe, which passes `locateFile`, now imports `init` from the new
+  entry. Through either entry, `init()` reads each of its options once per
+  call. Requested in
+  [Qbit-Org/qbit-wallet#40](https://github.com/Qbit-Org/qbit-wallet/issues/40).
+- New entry points `@qbit-oss/pqc/worker` and `@qbit-oss/pqc/worker/handler`
+  for signing off the calling thread
+  ([#7](https://github.com/Qbit-Org/qbit-pqc/issues/7)).
+  `servePqcWorker({ client, endpoint })` serves a client, such as the promise
+  `init()` returns, in a dedicated worker; `createPqcWorkerClient(endpoint)`
+  returns a client whose `keygen`, `derivePQCKey`, `deriveP2mrDescriptorKey`,
+  `sign`, `signWithStats`, `verify` and `secretKeyValidate` run in that
+  worker and return promises, with `constants` and `close()`. An endpoint is
+  a `Worker`, a `MessagePort`, Node's `worker_threads` `Worker` or
+  `parentPort`, or any object with `postMessage` and message events. Each
+  client tags its requests with a random nonce, so clients sharing a worker
+  never take each other's results. Byte arguments are copied into buffers
+  that are transferred, so the caller's buffers are never detached; the
+  worker zeroes its copies after each call and transfers results back.
+  `options` is read on the calling side before the request is sent.
+  `PqcError` and `PqcLoadError` are rebuilt as instances of the package's
+  classes, with their fields; a `TypeError` or `RangeError` keeps its type
+  and message. A worker that exits, or a port whose other end closes, rejects
+  the pending calls with an `Error` named `PqcWorkerClosedError`; a browser
+  worker's `error` and `messageerror` events go to an `onError` option and
+  leave the client open. `close()` keeps receiving the answers to the calls
+  it rejected, to zero them; a second `close()` or `close({ force: true })`
+  stops at once. The calling side's imports reach neither the Emscripten
+  loader nor `pqc.wasm`; `@qbit-oss/pqc/worker` also exports `PqcError`,
+  `PqcLoadError`, `errorCodes` and `constants`, the same objects every entry
+  exports, so code that holds the client checks errors without loading the
+  WASM module.
+  [Signing in a worker](docs/worker.md) shows the MV3 offscreen-document
+  relay and lists the copies the package cannot zero, and
+  `examples/worker-signing.mjs` signs in a `worker_threads` worker.
+
+- `init()` takes an optional `expectedWasmSha256`, the SHA-256 of `pqc.wasm`
+  as 64 lowercase hex characters, and the new `constants.WASM_SHA256` is the
+  digest that `wasm/SHA256SUMS` pins for this version. With it, `init()`
+  hashes the bytes it is about to compile, whether `wasmBinary`, the embedded
+  copy, or the file that `moduleUrl` or `locateFile` names, and rejects with a
+  `PqcLoadError` that names both digests before compiling other bytes. It
+  reads such a file itself, with `fetch()` or, in Node, from the file system,
+  and calls the factory once, with the bytes as `wasmBinary`. To locate the
+  file, it calls `locateFile` itself with the `prefix` the loader would pass;
+  with `createModule`, that is the package's `wasm/` directory rather than the
+  directory of the caller's copy of the loader. A bare `moduleUrl` is
+  resolved with `import.meta.resolve`, and rejects where there is none; a
+  `moduleUrl` that cannot be resolved rejects rather than falling back to the
+  package's `pqc.wasm`. In Node, a `locateFile` that returns a URL other than
+  a `file://` URL is refused with an error naming its scheme. These apply only
+  with `expectedWasmSha256`. Any other value of the option rejects with a
+  `TypeError` before anything loads, and calls with different digests do not
+  share a load. The loader `pqc.mjs`, and a factory that ignores
+  `wasmBinary`, are not checked. Without the option, `init()` loads as before.
+  `constants.WASM_SHA256` is read from `wasm/SHA256SUMS` when the package is
+  built, and the build fails unless `wasm/pqc.wasm`, the copy it embeds, has
+  that digest.
+
+### Native library
+
+- The vendored `libbitcoinpqc` is pinned to `Qbit-Org/qbit-libbitcoinpqc` at
+  `edcea6cb` (previously `70008b93`). Four vendored files change: `sha2.c` and
+  `sha2.h` gain test-only helpers that the WASM build does not compile, and
+  `hash_sha2.c` and `sign.c` rewrite a zeroing loop so that its counter does
+  not wrap past zero. Keys, signatures and verification results are
+  unchanged; the golden vectors and qbit Core's signatures still match byte
+  for byte.
+- `qbit_pqc_sign_with_stats` zeroes `stats_out` before it rejects its
+  arguments with `BAD_ARG`, so every return writes the stats. The typed API
+  always passes valid arguments, so nothing it returns changes.
+- `wasm/pqc.mjs` and `wasm/pqc.wasm`, and the copy of `pqc.wasm` embedded in
+  `lib/index.mjs`, are rebuilt with these changes and the glue change above.
+  Their SHA-256 values in `wasm/SHA256SUMS` are now
+  `35005303d6ae2c469e0a670664575b99e853c0c7d85bd0c7ba0f65998ede9d06` for
+  `pqc.mjs` (previously `4c9f9d9d…`) and
+  `f7bbbf8ce9cc7d039c1083ddebfd8fdd176864d2bae61b2021eb7f391dd678aa` for
+  `pqc.wasm` (previously `8696a3a4…`). Integrators who pin these hashes, as
+  qbit-wallet does in `scripts/security/sdk-package-pins.json`, must update
+  them.
+
+### Packaging and docs
+
+- New [Supported runtimes](docs/runtimes.md) page, summarized in the README:
+  Node `^20.19.0 || >=22.12.0`, browsers, Chrome MV3 (service worker,
+  offscreen document, dedicated worker), the bundler versions the bundler
+  smoke builds with, and that React Native, which has no global
+  `WebAssembly`, is not supported. It shows how to supply a module built or
+  instantiated differently through `createModule`, since the loader reads
+  only `locateFile` and `wasmBinary` and so ignores Emscripten's
+  `instantiateWasm`.
+- The implementation moves from `lib/index.mjs` to `lib/core.mjs`, and the
+  error classes, codes, constants and byte checks it shares with the worker
+  client to `lib/shared.mjs`; no `exports` entry names either.
+  `lib/index.mjs` and the new `lib/external-wasm.mjs` import them and export
+  only the public API, 0.1.0's names, so helpers the package's own files
+  share are not reachable through an entry. The tarball gains `lib/core.mjs`,
+  `lib/shared.mjs` and `lib/external-wasm.mjs`, with their source maps and
+  declarations, and their sources `src/core.ts`, `src/shared.ts` and
+  `src/external-wasm.ts`. `typesVersions` maps `@qbit-oss/pqc/external-wasm`,
+  `@qbit-oss/pqc/worker` and `@qbit-oss/pqc/worker/handler` to their
+  declarations for TypeScript's `node10` resolution, which reads no `exports`
+  map.
+  **Compatibility:** `lib/index.mjs` now imports the files beside it.
+  Bundlers and Node follow those imports, but a setup that copies only
+  `lib/index.mjs`, such as an extension that ships the package's files
+  without a bundler, must copy the whole `lib/` directory.
+- The tarball gains `lib/worker.mjs` and `lib/worker-handler.mjs`, with their
+  source maps and declarations, their sources `src/worker.ts`,
+  `src/worker-handler.ts` and `src/worker-protocol.ts`, and
+  `docs/worker.md` and `docs/runtimes.md`.
+- The README, which is the npm page, leads with install and a runnable quick
+  start. Its reference text moves unchanged to `docs/api.md`,
+  `docs/loading.md` and `docs/signing.md`. The README keeps a short summary
+  under each old heading, so links to its sections still land.
+  `docs/qbit-js.md` shows how to sign PSBTs and message proofs with
+  qbit-js's `@qbit-oss/protocol` 0.1.0. Every export now has a doc comment,
+  so `lib/index.d.mts` documents the whole API in editors. The status lines
+  that said nothing had been published are corrected.
+
+### Development
+
+- CONTRIBUTING.md, `.nvmrc`, and `pnpm verify`, which runs every offline
+  check of CI's `verify` job in order. Prettier (width 120) formats the
+  sources, with the byte-exact paths left alone; `wasm/` and `native/` are
+  kept from line-ending conversion. A new `node-matrix` CI job builds and
+  tests on the engines floors 20.19.0 and 22.12.0, and on Node 24 and 26.
+- `examples/` holds runnable examples that `pnpm smoke:consumer` runs
+  against the installed tarball. Every JavaScript and TypeScript code block
+  in README.md and `docs/` must match a file that CI runs or type-checks.
+
+## 0.1.0 (2026-10-26)
+
+This was the first release, and nothing had been published before it. Changes
 are listed against version `0.0.0`, the unreleased state before the
 pre-release review. **Breaking** marks a change that can make existing
 caller code fail or behave differently.

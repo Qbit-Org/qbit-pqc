@@ -261,7 +261,9 @@ function bip32CkdPriv(node, index) {
   serIndex.writeUInt32BE(index)
   const parentPublicKey = secp256k1CompressedPublicKey(node.key)
   const data = index >= BIP32_HARDENED ? Buffer.concat([Buffer.from([0]), node.key]) : parentPublicKey
-  const I = createHmac('sha512', node.chainCode).update(Buffer.concat([data, serIndex])).digest()
+  const I = createHmac('sha512', node.chainCode)
+    .update(Buffer.concat([data, serIndex]))
+    .digest()
   const il = bufferToBigInt(I.subarray(0, 32))
   if (il >= SECP256K1_N) throw new Error(`invalid child key at index ${index} (IL >= n)`)
   const k = (il + bufferToBigInt(node.key)) % SECP256K1_N
@@ -297,7 +299,15 @@ function bip32SerializePrivate(node, version) {
   const childNumber = Buffer.alloc(4)
   childNumber.writeUInt32BE(node.childNumber)
   return base58check(
-    Buffer.concat([versionBytes, Buffer.from([node.depth]), node.parentFingerprint, childNumber, node.chainCode, Buffer.from([0]), node.key])
+    Buffer.concat([
+      versionBytes,
+      Buffer.from([node.depth]),
+      node.parentFingerprint,
+      childNumber,
+      node.chainCode,
+      Buffer.from([0]),
+      node.key,
+    ])
   )
 }
 
@@ -305,8 +315,16 @@ function bip32SerializePrivate(node, version) {
 // it for anything. (bip-0032.mediawiki, test vectors 1-3.)
 function bip32SelfTest() {
   const vectors = [
-    ['000102030405060708090a0b0c0d0e0f', 'm', 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi'],
-    ['000102030405060708090a0b0c0d0e0f', 'm/0h/1/2h/2/1000000000', 'xprvA41z7zogVVwxVSgdKUHDy1SKmdb533PjDz7J6N6mV6uS3ze1ai8FHa8kmHScGpWmj4WggLyQjgPie1rFSruoUihUZREPSL39UNdE3BBDu76'],
+    [
+      '000102030405060708090a0b0c0d0e0f',
+      'm',
+      'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi',
+    ],
+    [
+      '000102030405060708090a0b0c0d0e0f',
+      'm/0h/1/2h/2/1000000000',
+      'xprvA41z7zogVVwxVSgdKUHDy1SKmdb533PjDz7J6N6mV6uS3ze1ai8FHa8kmHScGpWmj4WggLyQjgPie1rFSruoUihUZREPSL39UNdE3BBDu76',
+    ],
     [
       'fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542',
       'm/0/2147483647h/1/2147483646h/2',
@@ -352,7 +370,8 @@ function verifyTarballChecksum(tarballPath, sha256sumsPath) {
 // primaryFingerprint. Returns the pinned signers that signed, sorted by alias.
 export async function verifySha256sumsSignatures(sha256sumsPath, ascPath, signerKeysDir, trusted) {
   const quorum = trusted.manifest.releaseSignatureQuorum
-  if (!Number.isInteger(quorum) || quorum < 1) throw new Error(`pinned release quorum must be a positive integer, got ${quorum}`)
+  if (!Number.isInteger(quorum) || quorum < 1)
+    throw new Error(`pinned release quorum must be a positive integer, got ${quorum}`)
   // One pinned entry per operator key: a primary key listed under two aliases
   // (or a fingerprint used as both a signing and a primary key) would let one
   // operator count twice toward the quorum.
@@ -467,9 +486,11 @@ export function parseLsRemoteTag(stdout, remote, tag) {
 }
 
 export async function resolveReleaseTag(remote, tag) {
-  const { stdout } = await execFile('git', ['ls-remote', remote, `refs/tags/${tag}`, `refs/tags/${tag}^{}`]).catch(error => {
-    throw new Error(`git ls-remote ${remote} refs/tags/${tag} failed: ${errorText(error)}`)
-  })
+  const { stdout } = await execFile('git', ['ls-remote', remote, `refs/tags/${tag}`, `refs/tags/${tag}^{}`]).catch(
+    error => {
+      throw new Error(`git ls-remote ${remote} refs/tags/${tag} failed: ${errorText(error)}`)
+    }
+  )
   return parseLsRemoteTag(stdout, remote, tag)
 }
 
@@ -573,7 +594,11 @@ class RegtestNode {
   }
 
   async walletRpc(wallet, method, ...params) {
-    return this.cli([`-rpcwallet=${wallet}`, method, ...params.map(p => (typeof p === 'string' ? p : JSON.stringify(p)))])
+    return this.cli([
+      `-rpcwallet=${wallet}`,
+      method,
+      ...params.map(p => (typeof p === 'string' ? p : JSON.stringify(p))),
+    ])
   }
 
   async cli(args) {
@@ -582,7 +607,9 @@ class RegtestNode {
       ['-regtest', `-datadir=${this.datadir}`, `-rpcport=${this.rpcPort}`, ...args],
       { maxBuffer: 16 * 1024 * 1024 }
     ).catch(error => {
-      throw new Error(`qbit-cli ${args[0]}${args[0].startsWith('-rpcwallet') ? ` ${args[1]}` : ''} failed: ${errorText(error)}`)
+      throw new Error(
+        `qbit-cli ${args[0]}${args[0].startsWith('-rpcwallet') ? ` ${args[1]}` : ''} failed: ${errorText(error)}`
+      )
     })
     const text = stdout.trim()
     try {
@@ -641,7 +668,10 @@ function expectedP2mrSingleLeafProgram(pk32Hex) {
   // Core: ComputeP2MRLeafHash(0xc0, <pk32> OP_CHECKSIGPQC) is the Merkle root
   // of a single-leaf P2MR tree. Verified below against Core's p2mr_merkle_root.
   const leafScript = Buffer.concat([Buffer.from([0x20]), Buffer.from(pk32Hex, 'hex'), Buffer.from([0xb3])])
-  return taggedHash('P2MRLeaf', Buffer.concat([Buffer.from([0xc0]), compactSize(leafScript.length), leafScript])).toString('hex')
+  return taggedHash(
+    'P2MRLeaf',
+    Buffer.concat([Buffer.from([0xc0]), compactSize(leafScript.length), leafScript])
+  ).toString('hex')
 }
 
 async function generateChainVectors(node, wallet, master, tprv, chain) {
@@ -688,7 +718,11 @@ async function generateChainVectors(node, wallet, master, tprv, chain) {
     const corePath = await withChecksum(node, corePathDescriptor)
     const localLeaf = await withChecksum(node, `mr(pk(pqc(${bip32SerializePrivate(leaf, TPRV_VERSION)})))`)
     const crossCheckAddress = await deriveSingle(node, corePath.descriptor)
-    assertEqual(await deriveSingle(node, localLeaf.descriptor), crossCheckAddress, `BIP32 leaf cross-check for ${bip32Path}`)
+    assertEqual(
+      await deriveSingle(node, localLeaf.descriptor),
+      crossCheckAddress,
+      `BIP32 leaf cross-check for ${bip32Path}`
+    )
     if (index === 0) {
       // Ranged position 0 and the un-ranged form share HKDF index 0.
       assertEqual(crossCheckAddress, address, `un-ranged descriptor at ${bip32Path}`)
@@ -730,7 +764,8 @@ async function generateDataSignatureVector(node, wallet, vector) {
   assertEqual(proof.leaf_script, `20${vector.publicKeyHex}b3`, 'signdatapqchash leaf_script')
   assertEqual(proof.control_block, 'c1', 'signdatapqchash control_block')
   assertEqual(`5220${proof.p2mr_merkle_root}`, vector.scriptPubKeyHex, 'signdatapqchash p2mr_merkle_root')
-  if (!/^[0-9a-f]{7360}$/.test(proof.signature)) throw new Error(`unexpected signature encoding/length: ${proof.signature.length}`)
+  if (!/^[0-9a-f]{7360}$/.test(proof.signature))
+    throw new Error(`unexpected signature encoding/length: ${proof.signature.length}`)
 
   const verification = await node.rpc('verifydatapqchash', {
     address: proof.address,
@@ -749,7 +784,8 @@ async function generateDataSignatureVector(node, wallet, vector) {
     rpc: 'signdatapqchash',
     proofMode: proof.proof_mode,
     domain: proof.domain,
-    signedBytes: 'datasigHashHex = SHA256(SHA256(utf8(domain)) || SHA256(utf8(domain)) || messageHash); the SLH-DSA signature is over these 32 bytes.',
+    signedBytes:
+      'datasigHashHex = SHA256(SHA256(utf8(domain)) || SHA256(utf8(domain)) || messageHash); the SLH-DSA signature is over these 32 bytes.',
     messageUtf8: DATA_SIGNATURE_MESSAGE_UTF8,
     messageHashHex,
     datasigHashHex: proof.datasig_hash,
@@ -771,7 +807,12 @@ async function generate(options) {
 
   const trusted = QBIT_CORE_RELEASE_SIGNERS
   const release = verifyTarballChecksum(options.tarball, options.sha256sums)
-  const signatures = await verifySha256sumsSignatures(options.sha256sums, options.sha256sumsAsc, options.signerKeys, trusted)
+  const signatures = await verifySha256sumsSignatures(
+    options.sha256sums,
+    options.sha256sumsAsc,
+    options.signerKeys,
+    trusted
+  )
   console.log(
     `SHA256SUMS signed by ${signatures.signers.map(signer => signer.alias).join(', ')} ` +
       `(pinned ${trusted.manifest.policyId}, quorum ${trusted.manifest.releaseSignatureQuorum}; ` +
@@ -782,8 +823,16 @@ async function generate(options) {
   // on the pinned repository and require the same commit.
   const remote = `https://github.com/${trusted.repository}.git`
   const tagResolution = await resolveReleaseTag(remote, options.coreTag)
-  assertEqual(tagResolution.commit, options.coreCommit, `${remote} refs/tags/${options.coreTag} does not resolve to --core-commit`)
-  assertEqual(tagResolution.tagObjectSha, trusted.tagObjectSha, `${remote} refs/tags/${options.coreTag} is not the pinned tag object`)
+  assertEqual(
+    tagResolution.commit,
+    options.coreCommit,
+    `${remote} refs/tags/${options.coreTag} does not resolve to --core-commit`
+  )
+  assertEqual(
+    tagResolution.tagObjectSha,
+    trusted.tagObjectSha,
+    `${remote} refs/tags/${options.coreTag} is not the pinned tag object`
+  )
 
   const stageDir = mkdtempSync(join(tmpdir(), 'qbit-core-oracle-release-'))
   const datadir = mkdtempSync(join(tmpdir(), 'qbit-core-oracle-regtest-'))
@@ -912,7 +961,9 @@ export function checkFixture(outPath, fixture, text) {
   if (!isFile(outPath)) throw new Error(`${outPath} does not exist; run without --check to create it`)
   const existingText = readFileSync(outPath, 'utf8')
   if (existingText === text) {
-    console.log(`${outPath}: byte-identical to ${fixture.core.versionString} (${fixture.core.release.asset}, ${fixture.vectors.length} vectors)`)
+    console.log(
+      `${outPath}: byte-identical to ${fixture.core.versionString} (${fixture.core.release.asset}, ${fixture.vectors.length} vectors)`
+    )
     return
   }
   let existing
@@ -921,11 +972,18 @@ export function checkFixture(outPath, fixture, text) {
   } catch (error) {
     throw new Error(`${outPath} is not valid JSON: ${error.message}`)
   }
-  if (typeof existing !== 'object' || existing === null || typeof existing.core !== 'object' || existing.core === null) {
+  if (
+    typeof existing !== 'object' ||
+    existing === null ||
+    typeof existing.core !== 'object' ||
+    existing.core === null
+  ) {
     throw new Error(`${outPath} does not look like a ${FIXTURE_NAME} fixture`)
   }
   if (derivationContent(existing) !== derivationContent(fixture)) {
-    throw new Error(`${outPath} vectors differ from those generated by ${fixture.core.versionString} (${fixture.core.release.asset})`)
+    throw new Error(
+      `${outPath} vectors differ from those generated by ${fixture.core.versionString} (${fixture.core.release.asset})`
+    )
   }
   const differences = provenanceDifferences(existing, fixture)
   if (differences.length === 0) {
@@ -951,7 +1009,9 @@ async function main() {
   }
 
   writeFileSync(options.out, text)
-  console.log(`wrote ${options.out} (${fixture.vectors.length} vectors from ${fixture.core.versionString}, ${fixture.core.release.asset})`)
+  console.log(
+    `wrote ${options.out} (${fixture.vectors.length} vectors from ${fixture.core.versionString}, ${fixture.core.release.asset})`
+  )
 }
 
 // Run only as a CLI; test/qbit-core-binary-vectors-generator.test.mjs imports

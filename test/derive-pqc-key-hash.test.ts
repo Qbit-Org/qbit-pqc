@@ -1,18 +1,17 @@
 import { createHash, createHmac, hkdfSync } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 
-import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { constants, init, type PqcClient } from '../src/index'
+import { importSourceCopy } from './source-copy'
 
 // derivePQCKey hashes with a SHA-256, HMAC-SHA-256 and HKDF of its own in
-// src/index.ts, written against captured intrinsics (see the top of that
+// src/core.ts, written against captured intrinsics (see the top of that
 // file). Through derivePQCKey they only ever see two HMAC keys, the 15-byte
 // salt and the 32-byte PRK, and SHA-256 messages of 64 + seed length, 92, 96
 // and 124 bytes. Messages under 65 bytes and HMAC's branch for keys longer
 // than a block are reachable only by calling the functions directly. They are
-// module-private, so this file evaluates src/index.ts itself, with the types
+// module-private, so this file evaluates src/core.ts itself, with the types
 // stripped and an export list appended, and compares them with node:crypto.
 
 const HKDF_SALT = Buffer.from('qbit-sphincs-v1', 'utf8')
@@ -28,22 +27,14 @@ const LENGTHS = [...Array.from({ length: 201 }, (_, length) => length), 2 ** 16 
 interface HashInternals {
   sha256(message: Uint8Array): Uint8Array
   hmacSha256(key: Uint8Array, data: Uint8Array): Uint8Array
-  derivePQCKeygenEntropy(
-    masterSeed: Uint8Array,
-    account: number,
-    change: number,
-    index: number
-  ): Uint8Array
+  derivePQCKeygenEntropy(masterSeed: Uint8Array, account: number, change: number, index: number): Uint8Array
 }
 
 async function loadHashInternals(): Promise<HashInternals> {
-  const source = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
-  const { outputText } = ts.transpileModule(
-    `${source}\nexport { sha256, hmacSha256, derivePQCKeygenEntropy }\n`,
-    { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }
+  return importSourceCopy<HashInternals>(
+    'hash internals',
+    source => `${source}\nexport { sha256, hmacSha256, derivePQCKeygenEntropy }\n`
   )
-  const url = `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
-  return (await import(/* @vite-ignore */ url)) as HashInternals
 }
 
 function patternBytes(length: number, tag: number): Uint8Array {
@@ -60,12 +51,7 @@ function pathFor(length: number): [account: number, change: number, index: numbe
   return [length, length & 1, Math.imul(length + 1, 0x9e3779b9) >>> 0]
 }
 
-function hkdfEntropy(
-  masterSeed: Uint8Array,
-  account: number,
-  change: number,
-  index: number
-): Uint8Array {
+function hkdfEntropy(masterSeed: Uint8Array, account: number, change: number, index: number): Uint8Array {
   const info = Buffer.alloc(HKDF_INFO_PREFIX.length + 12)
   HKDF_INFO_PREFIX.copy(info)
   info.writeUInt32LE(account, HKDF_INFO_PREFIX.length)

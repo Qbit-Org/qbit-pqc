@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs'
 
-import ts from 'typescript'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import derivationFixture from '../fixtures/qbit-core-derivation.json'
@@ -11,11 +10,13 @@ import {
   PqcError,
   type PqcClient,
   type PqcDerivedKey,
+  type PqcDerivedKeyPair,
   type PqcKeyPair,
   type PqcSignWithStatsResult,
   type PqcWasmModule,
 } from '../src/index'
 import { freshClient } from './fresh-client'
+import { importSourceCopy } from './source-copy'
 
 // Regression coverage for caller code that runs during a call: argument
 // validation used `value instanceof Uint8Array`, which walks the
@@ -290,7 +291,7 @@ interface RecordingCopy {
   readonly created: Array<Uint8Array | Uint32Array>
 }
 
-// A second copy of src/index.ts, evaluated while globalThis.Uint8Array and
+// A second copy of src/core.ts, evaluated while globalThis.Uint8Array and
 // Uint32Array are Proxies of the real constructors that record each array
 // they construct. The copy captures those Proxies as its intrinsics, so every
 // typed array it allocates is a genuine one that is also recorded, and a test
@@ -305,19 +306,13 @@ async function loadRecordingCopy(): Promise<RecordingCopy> {
         return array
       },
     })
-  const source = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
-  // The trailing comment keeps this copy's data: URL apart from any other
-  // copy's, so the import evaluates it afresh.
-  const { outputText } = ts.transpileModule(`${source}\n// recording copy\n`, {
-    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
-  })
-  const url = `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
   const uninstall = combine(
     () => patchProperty(globalThis, 'Uint8Array', recording(RealUint8Array)),
     () => patchProperty(globalThis, 'Uint32Array', recording(RealUint32Array))
   )()
   try {
-    const copy = (await import(/* @vite-ignore */ url)) as { init: typeof init }
+    // The copy of src/shared.ts it imports captures the Proxies.
+    const copy = await importSourceCopy<{ init: typeof init }>('recording')
     return { init: copy.init, created }
   } finally {
     uninstall()
@@ -347,14 +342,10 @@ const hashPatches: HashPatch[] = [
   [
     '%TypedArray%.prototype.fill (skips zeroing only)',
     called => () =>
-      patchProperty(
-        typedArrayPrototype,
-        'fill',
-        function (this: Uint8Array, value: number, ...range: number[]) {
-          called()
-          return value === 0 ? this : realFill.call(this, value, ...range)
-        }
-      ),
+      patchProperty(typedArrayPrototype, 'fill', function (this: Uint8Array, value: number, ...range: number[]) {
+        called()
+        return value === 0 ? this : realFill.call(this, value, ...range)
+      }),
   ],
   [
     'the %TypedArray%.prototype.length getter (always 0)',
@@ -447,9 +438,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const plain = messageBytes('sign')
 
-      const outcome = underTrap(swapGlobalUint8Array, trap =>
-        victim.sign(pair.secretKey, trap(plain))
-      )
+      const outcome = underTrap(swapGlobalUint8Array, trap => victim.sign(pair.secretKey, trap(plain)))
 
       expect(expectClean(outcome)).toEqual(reference.sign(pair.secretKey, plain))
       expect(fakeUint8ArrayConstructions).toBe(0)
@@ -460,9 +449,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const plain = messageBytes('signWithStats')
 
-      const outcome = underTrap(swapGlobalUint8Array, trap =>
-        victim.signWithStats(pair.secretKey, trap(plain))
-      )
+      const outcome = underTrap(swapGlobalUint8Array, trap => victim.signWithStats(pair.secretKey, trap(plain)))
 
       expect(expectClean(outcome)).toEqual(reference.signWithStats(pair.secretKey, plain))
       expect(fakeUint8ArrayConstructions).toBe(0)
@@ -474,9 +461,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       const signature = reference.sign(pair.secretKey, plain)
       const emptyMessageSignature = reference.sign(pair.secretKey, new Uint8Array(0))
 
-      const accepted = underTrap(swapGlobalUint8Array, trap =>
-        victim.verify(trap(pair.publicKey), plain, signature)
-      )
+      const accepted = underTrap(swapGlobalUint8Array, trap => victim.verify(trap(pair.publicKey), plain, signature))
       expect(expectClean(accepted)).toBe(true)
 
       const rejected = underTrap(swapGlobalUint8Array, trap =>
@@ -500,9 +485,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const seed = syntheticEntropy(0x5e).slice(0, 64)
 
-      const outcome = underTrap(swapGlobalUint8Array, trap =>
-        victim.derivePQCKey(trap(seed), 1, 0, 7)
-      )
+      const outcome = underTrap(swapGlobalUint8Array, trap => victim.derivePQCKey(trap(seed), 1, 0, 7))
 
       expect(expectClean(outcome)).toEqual(reference.derivePQCKey(seed, 1, 0, 7))
       expect(fakeUint8ArrayConstructions).toBe(0)
@@ -512,9 +495,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const leaf = syntheticEntropy(0x5f).slice(0, 32)
 
-      const outcome = underTrap(swapGlobalUint8Array, trap =>
-        victim.deriveP2mrDescriptorKey(trap(leaf), 7)
-      )
+      const outcome = underTrap(swapGlobalUint8Array, trap => victim.deriveP2mrDescriptorKey(trap(leaf), 7))
 
       expect(expectClean(outcome)).toEqual(reference.deriveP2mrDescriptorKey(leaf, 7))
       expect(fakeUint8ArrayConstructions).toBe(0)
@@ -553,9 +534,7 @@ describe('intrinsics used after user code can run are captured at module load', 
       const plain = messageBytes('constants')
       const entropy = syntheticEntropy(0x6f)
 
-      const signed = underTrap(patchConstant('SIG_SIZE', 16), trap =>
-        victim.sign(pair.secretKey, trap(plain))
-      )
+      const signed = underTrap(patchConstant('SIG_SIZE', 16), trap => victim.sign(pair.secretKey, trap(plain)))
       expect(expectClean(signed)).toEqual(reference.sign(pair.secretKey, plain))
 
       const withStats = underTrap(patchConstant('SIG_SIZE', 16), trap =>
@@ -563,9 +542,8 @@ describe('intrinsics used after user code can run are captured at module load', 
       )
       expect(expectClean(withStats)).toEqual(reference.signWithStats(pair.secretKey, plain))
 
-      const generated = underTrap(
-        combine(patchConstant('PK_SIZE', 1), patchConstant('SK_SIZE', 1)),
-        trap => victim.keygen(trap(entropy))
+      const generated = underTrap(combine(patchConstant('PK_SIZE', 1), patchConstant('SK_SIZE', 1)), trap =>
+        victim.keygen(trap(entropy))
       )
       expect(expectClean(generated)).toEqual(reference.keygen(entropy))
       expect(constants.SIG_SIZE).toBe(3680)
@@ -587,6 +565,53 @@ describe('intrinsics used after user code can run are captured at module load', 
       )
 
       expect(expectClean(outcome)).toEqual(reference.derivePQCKey(seed, 2, 1, 3))
+    })
+
+    it('derived-key aliases do not depend on Object.defineProperties or Object.prototype', async () => {
+      await freshVictim()
+      const leaf = syntheticEntropy(0x71).slice(0, 32)
+      let patchCalls = 0
+      const inheritedFields = { get: () => undefined, set: () => undefined, value: new Uint8Array(1), writable: true }
+      for (const key of Object.keys(inheritedFields)) {
+        expect(Object.getOwnPropertyDescriptor(Object.prototype, key)).toBeUndefined()
+      }
+      const outcome = underTrap(
+        combine(
+          () =>
+            patchProperty(Object, 'defineProperties', () => {
+              patchCalls += 1
+              throw new Error('patched Object.defineProperties')
+            }),
+          // Descriptor fields inherited by an alias descriptor with a prototype:
+          // `set` would see every assignment, `get` would replace the getter,
+          // and `value` or `writable` would make defineProperties throw.
+          () => {
+            for (const [key, inherited] of Object.entries(inheritedFields)) {
+              // Prototype-less, so each patch leaves the next definition alone.
+              Object.defineProperty(Object.prototype, key, {
+                __proto__: null,
+                configurable: true,
+                get: () => {
+                  patchCalls += 1
+                  return inherited
+                },
+              } as PropertyDescriptor)
+            }
+            return () => {
+              for (const key of Object.keys(inheritedFields)) {
+                delete (Object.prototype as Record<string, unknown>)[key]
+              }
+            }
+          }
+        ),
+        trap => victim.deriveP2mrDescriptorKey(trap(leaf), 7)
+      )
+
+      const derived = expectClean<PqcDerivedKeyPair>(outcome)
+      expect(patchCalls).toBe(0)
+      expect(derived).toEqual(reference.deriveP2mrDescriptorKey(leaf, 7))
+      expect(derived.secretKey).toBe(derived.sk64)
+      expect(Object.getOwnPropertyDescriptor(derived, 'secretKey')?.set).toBeUndefined()
     })
 
     it('derivePQCKey still rejects non-integer path fields after Number is patched', async () => {
@@ -638,9 +663,7 @@ describe('intrinsics used after user code can run are captured at module load', 
 
       // A native BAD_ARG still throws rather than reading as a bad signature.
       victimModule._qbit_pqc_verify = () => badArg
-      const failed = underTrap(badSignatureReadsAsBadArg, trap =>
-        victim.verify(trap(pair.publicKey), plain, signature)
-      )
+      const failed = underTrap(badSignatureReadsAsBadArg, trap => victim.verify(trap(pair.publicKey), plain, signature))
       expect(failed.trapCalls).toBe(0)
       expect(failed.error).toBeInstanceOf(PqcError)
       expect((failed.error as PqcError).kind).toBe('BAD_ARG')
@@ -654,16 +677,12 @@ describe('intrinsics used after user code can run are captured at module load', 
       const badArg = errorCodes.BITCOIN_PQC_ERROR_BAD_ARG
       const badKeyReadsAsBadArg = patchErrorCode('BITCOIN_PQC_ERROR_BAD_KEY', badArg)
 
-      const rejected = underTrap(badKeyReadsAsBadArg, trap =>
-        victim.secretKeyValidate(trap(inconsistentKey))
-      )
+      const rejected = underTrap(badKeyReadsAsBadArg, trap => victim.secretKeyValidate(trap(inconsistentKey)))
       expect(expectClean(rejected)).toBe(false)
 
       // A native BAD_ARG still throws rather than reading as a bad key.
       victimModule._qbit_pqc_secret_key_validate = () => badArg
-      const failed = underTrap(badKeyReadsAsBadArg, trap =>
-        victim.secretKeyValidate(trap(pair.secretKey))
-      )
+      const failed = underTrap(badKeyReadsAsBadArg, trap => victim.secretKeyValidate(trap(pair.secretKey)))
       expect(failed.trapCalls).toBe(0)
       expect(failed.error).toBeInstanceOf(PqcError)
       expect((failed.error as PqcError).kind).toBe('BAD_ARG')
@@ -695,8 +714,7 @@ describe('intrinsics used after user code can run are captured at module load', 
             }),
           ...realArrayFrom(
             { length: constants.WOTSC_LAYERS },
-            (_, index) => () =>
-              patchAccessor(Array.prototype, index, { get: counted, set: counted })
+            (_, index) => () => patchAccessor(Array.prototype, index, { get: counted, set: counted })
           )
         ),
         trap => {
@@ -786,10 +804,7 @@ describe('intrinsics used after user code can run are captured at module load', 
     // non-zero byte in any array it allocated other than the key it returned
     // and views on the caller's masterSeed or on wasm memory (which the
     // secret-residue tests cover).
-    function deriveCoreVectors(
-      install: Install,
-      beforeCall?: (masterSeed: Uint8Array) => void
-    ): void {
+    function deriveCoreVectors(install: Install, beforeCall?: (masterSeed: Uint8Array) => void): void {
       for (const vector of derivationVectors) {
         const { account, change, index } = vector.hkdf
         const seed = hexBytes(vector.masterSeedHex)
@@ -825,21 +840,18 @@ describe('intrinsics used after user code can run are captured at module load', 
       }
     }
 
-    it.each(hashPatches)(
-      'derives qbit Core keys and zeroes its buffers with %s patched',
-      async (_name, patch) => {
-        await recordingVictim()
-        let calls = 0
+    it.each(hashPatches)('derives qbit Core keys and zeroes its buffers with %s patched', async (_name, patch) => {
+      await recordingVictim()
+      let calls = 0
 
-        deriveCoreVectors(
-          patch(() => {
-            calls += 1
-          })
-        )
+      deriveCoreVectors(
+        patch(() => {
+          calls += 1
+        })
+      )
 
-        expect(calls).toBe(0)
-      }
-    )
+      expect(calls).toBe(0)
+    })
 
     it('never runs a length getter that would detach masterSeed and patch the hash mid-call', async () => {
       await recordingVictim()

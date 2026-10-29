@@ -5,10 +5,7 @@ import { join } from 'node:path'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import {
-  parseLsRemoteTag,
-  verifySha256sumsSignatures,
-} from '../scripts/generate-qbit-core-binary-vectors.mjs'
+import { parseLsRemoteTag, verifySha256sumsSignatures } from '../scripts/generate-qbit-core-binary-vectors.mjs'
 import { QBIT_CORE_RELEASE_SIGNERS } from '../scripts/qbit-core-release-signers.mjs'
 
 // Release provenance of fixtures/qbit-core-binary-derivation.json rests on
@@ -320,7 +317,11 @@ describe.skipIf(!gpgAvailable)('verifySha256sumsSignatures', () => {
 
   // gpg stops at the first bad signature, so only one BADSIG is reported.
   it('rejects a tampered SHA256SUMS even when the pinned operators signed the original', async () => {
-    const { sums, asc, keysDir } = release({ keyAliases: OPERATORS, signedBy: ['op-01', 'op-02', 'op-03'], tamper: true })
+    const { sums, asc, keysDir } = release({
+      keyAliases: OPERATORS,
+      signedBy: ['op-01', 'op-02', 'op-03'],
+      tamper: true,
+    })
     await expect(verifySha256sumsSignatures(sums, asc, keysDir, keyring.pin(OPERATORS, 3))).rejects.toThrow(
       /0 valid from pinned operator keys \(quorum 3\), 0 valid from keys that are not pinned, [1-9]\d* bad/
     )
@@ -331,9 +332,9 @@ describe.skipIf(!gpgAvailable)('verifySha256sumsSignatures', () => {
     await expect(verifySha256sumsSignatures(sums, asc, keysDir, keyring.pin(['op-01', 'op-02'], 3))).rejects.toThrow(
       /only 2 pinned signers for a quorum of 3/
     )
-    await expect(verifySha256sumsSignatures(sums, asc, keysDir, keyring.pin(['op-01', 'op-01', 'op-02'], 3))).rejects.toThrow(
-      /signing fingerprint .* listed twice/
-    )
+    await expect(
+      verifySha256sumsSignatures(sums, asc, keysDir, keyring.pin(['op-01', 'op-01', 'op-02'], 3))
+    ).rejects.toThrow(/signing fingerprint .* listed twice/)
     // Two aliases over one primary key would let that operator count twice.
     const sharedPrimary = keyring.pin(OPERATORS, 3)
     sharedPrimary.signers[1].primaryFingerprint = sharedPrimary.signers[0].primaryFingerprint
@@ -346,7 +347,10 @@ describe.skipIf(!gpgAvailable)('verifySha256sumsSignatures', () => {
       /both a signing and a primary key/
     )
     await expect(
-      verifySha256sumsSignatures(sums, asc, keysDir, { ...keyring.pin(OPERATORS, 3), manifest: { releaseSignatureQuorum: 0 } })
+      verifySha256sumsSignatures(sums, asc, keysDir, {
+        ...keyring.pin(OPERATORS, 3),
+        manifest: { releaseSignatureQuorum: 0 },
+      })
     ).rejects.toThrow(/positive integer/)
   })
 })

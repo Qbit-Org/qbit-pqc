@@ -6,18 +6,45 @@ const REQUIRED_FILES = [
   'RELEASING.md',
   'SECURITY.md',
   'THIRD_PARTY_NOTICES',
+  'docs/api.md',
   'docs/derivation.md',
+  'docs/loading.md',
   'docs/mv3-conformance.md',
+  'docs/qbit-js.md',
+  'docs/runtimes.md',
+  'docs/signing.md',
+  'docs/worker.md',
   'fixtures/qbit-core-binary-derivation.json',
   'fixtures/qbit-core-derivation.json',
   'fixtures/slh-dsa-golden.json',
   'fixtures/qbit-core-signature-vectors.json',
   'fixtures/slh-dsa-golden.json.sha256',
+  'lib/core.d.mts',
+  'lib/core.mjs',
+  'lib/core.mjs.map',
+  'lib/external-wasm.d.mts',
+  'lib/external-wasm.mjs',
+  'lib/external-wasm.mjs.map',
   'lib/index.d.mts',
   'lib/index.mjs',
   'lib/index.mjs.map',
+  'lib/shared.d.mts',
+  'lib/shared.mjs',
+  'lib/shared.mjs.map',
+  'lib/worker-handler.d.mts',
+  'lib/worker-handler.mjs',
+  'lib/worker-handler.mjs.map',
+  'lib/worker.d.mts',
+  'lib/worker.mjs',
+  'lib/worker.mjs.map',
   'package.json',
+  'src/core.ts',
+  'src/external-wasm.ts',
   'src/index.ts',
+  'src/shared.ts',
+  'src/worker-handler.ts',
+  'src/worker-protocol.ts',
+  'src/worker.ts',
   'types/pqc.d.mts',
   'vendor/libbitcoinpqc-qbit/LICENSE',
   'vendor/libbitcoinpqc-qbit/MANIFEST',
@@ -43,28 +70,36 @@ const ALLOWED_FILES = new Set([
   'package.json',
   'types/pqc.d.mts',
 ])
-const ALLOWED_PREFIXES = [
-  'docs/',
-  'fixtures/',
-  'lib/',
-  'src/',
-  'vendor/libbitcoinpqc-qbit/',
-  'wasm/',
-]
+const ALLOWED_PREFIXES = ['docs/', 'fixtures/', 'lib/', 'src/', 'vendor/libbitcoinpqc-qbit/', 'wasm/']
 
-const FORBIDDEN_FILES = new Set([
-  '.gitignore',
-  'pnpm-lock.yaml',
-  'tsconfig.json',
-  'tsup.config.ts',
-  'vitest.config.ts',
-])
+const FORBIDDEN_FILES = new Set(['.gitignore', 'pnpm-lock.yaml', 'tsconfig.json', 'tsup.config.ts', 'vitest.config.ts'])
 const FORBIDDEN_PREFIXES = ['.context/', '.github/', 'native/', 'node_modules/', 'scripts/', 'test/']
 
-// Everything tsup writes (tsup.config.ts). lib/ is git-ignored and rebuilt by
+// Everything tsup writes (tsup.config.ts): the four entries, and lib/core.mjs
+// and lib/shared.mjs, which no exports entry names and the entries import by
+// name rather than through a hashed chunk. lib/ is git-ignored and rebuilt by
 // prepack, so these are the only packed paths that git does not track.
 const BUILD_DIR = 'lib/'
-const BUILD_OUTPUTS = new Set(['lib/index.d.mts', 'lib/index.mjs', 'lib/index.mjs.map'])
+const BUILD_OUTPUTS = new Set([
+  'lib/core.d.mts',
+  'lib/core.mjs',
+  'lib/core.mjs.map',
+  'lib/external-wasm.d.mts',
+  'lib/external-wasm.mjs',
+  'lib/external-wasm.mjs.map',
+  'lib/index.d.mts',
+  'lib/index.mjs',
+  'lib/index.mjs.map',
+  'lib/shared.d.mts',
+  'lib/shared.mjs',
+  'lib/shared.mjs.map',
+  'lib/worker-handler.d.mts',
+  'lib/worker-handler.mjs',
+  'lib/worker-handler.mjs.map',
+  'lib/worker.d.mts',
+  'lib/worker.mjs',
+  'lib/worker.mjs.map',
+])
 
 function isAllowed(path) {
   return ALLOWED_FILES.has(path) || ALLOWED_PREFIXES.some(prefix => path.startsWith(prefix))
@@ -147,9 +182,7 @@ export function validatePackFiles(paths) {
     errors.push(`files outside the release allowlist:\n  ${unexpected.join('\n  ')}`)
   }
 
-  const unbuilt = safePaths
-    .filter(path => path.startsWith(BUILD_DIR) && !BUILD_OUTPUTS.has(path))
-    .sort()
+  const unbuilt = safePaths.filter(path => path.startsWith(BUILD_DIR) && !BUILD_OUTPUTS.has(path)).sort()
   if (unbuilt.length > 0) {
     errors.push(`files in ${BUILD_DIR} that tsup does not build:\n  ${unbuilt.join('\n  ')}`)
   }
@@ -169,9 +202,7 @@ export function validateTrackedPackFiles(paths, { tracked, changed }) {
   const versioned = paths.filter(path => !BUILD_OUTPUTS.has(path))
   const untracked = versioned.filter(path => !tracked.has(path)).sort()
   if (untracked.length > 0) {
-    throw new Error(
-      `npm package contents include files not tracked by git:\n  ${untracked.join('\n  ')}`
-    )
+    throw new Error(`npm package contents include files not tracked by git:\n  ${untracked.join('\n  ')}`)
   }
 
   return versioned.filter(path => changed.has(path)).sort()

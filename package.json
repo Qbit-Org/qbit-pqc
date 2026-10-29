@@ -1,6 +1,6 @@
 {
   "name": "@qbit-oss/pqc",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "qbit post-quantum crypto WASM package",
   "packageManager": "pnpm@10.34.6",
   "engines": {
@@ -31,15 +31,44 @@
       "import": "./lib/index.mjs",
       "default": "./lib/index.mjs"
     },
+    "./external-wasm": {
+      "types": "./lib/external-wasm.d.mts",
+      "import": "./lib/external-wasm.mjs",
+      "default": "./lib/external-wasm.mjs"
+    },
+    "./worker": {
+      "types": "./lib/worker.d.mts",
+      "import": "./lib/worker.mjs",
+      "default": "./lib/worker.mjs"
+    },
+    "./worker/handler": {
+      "types": "./lib/worker-handler.d.mts",
+      "import": "./lib/worker-handler.mjs",
+      "default": "./lib/worker-handler.mjs"
+    },
     "./wasm/pqc.mjs": {
       "types": "./types/pqc.d.mts",
       "default": "./wasm/pqc.mjs"
     },
     "./wasm/pqc.wasm": "./wasm/pqc.wasm",
     "./wasm/SHA256SUMS": "./wasm/SHA256SUMS",
+    "./fixtures/*": "./fixtures/*",
     "./LICENSE": "./LICENSE",
     "./THIRD_PARTY_NOTICES": "./THIRD_PARTY_NOTICES",
     "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "external-wasm": [
+        "./lib/external-wasm.d.mts"
+      ],
+      "worker": [
+        "./lib/worker.d.mts"
+      ],
+      "worker/handler": [
+        "./lib/worker-handler.d.mts"
+      ]
+    }
   },
   "browser": {
     "module": false
@@ -50,6 +79,8 @@
     "check:vendor": "node scripts/check-vendor.mjs",
     "check:wasm": "node scripts/check-wasm-hash.mjs",
     "check:wasm:repro": "scripts/check-wasm-repro.sh",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "pack:check": "node scripts/check-pack.mjs",
     "prepack": "pnpm build",
     "prepublishOnly": "node scripts/check-publish.mjs",
@@ -60,6 +91,7 @@
     "test:mv3": "node scripts/run-mv3-smoke.mjs",
     "test:smoke": "pnpm build && pnpm smoke:load",
     "typecheck": "tsc --noEmit && pnpm build && tsc -p test/types/tsconfig.node16.json && tsc -p test/types/tsconfig.bundler.json",
+    "verify": "pnpm format:check && pnpm build && pnpm test && pnpm typecheck && pnpm check:vendor && pnpm check:wasm && pnpm pack:check && pnpm smoke:consumer",
     "clean": "rm -rf lib coverage .context/repro"
   },
   "keywords": [
@@ -81,6 +113,7 @@
   "devDependencies": {
     "@puppeteer/browsers": "3.2.4",
     "@types/node": "^20.19.0",
+    "prettier": "3.9.10",
     "tsup": "^8.5.1",
     "typescript": "^5.2.0",
     "vitest": "^3.2.7"

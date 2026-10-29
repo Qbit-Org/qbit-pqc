@@ -47,9 +47,7 @@ describe('cross-realm Uint8Array inputs', () => {
 
     const signature = sign(foreignBytes(local.secretKey), foreignBytes(message))
     expect(verify(local.publicKey, message, signature)).toBe(true)
-    expect(verify(foreignBytes(local.publicKey), foreignBytes(message), foreignBytes(signature))).toBe(
-      true
-    )
+    expect(verify(foreignBytes(local.publicKey), foreignBytes(message), foreignBytes(signature))).toBe(true)
 
     const withStats = signWithStats(foreignBytes(local.secretKey), foreignBytes(message))
     expect(verify(local.publicKey, message, withStats.sig)).toBe(true)
@@ -57,14 +55,10 @@ describe('cross-realm Uint8Array inputs', () => {
     expect(secretKeyValidate(foreignBytes(local.secretKey))).toBe(true)
 
     const masterSeed = patternBytes(64, 11)
-    expect(derivePQCKey(foreignBytes(masterSeed), 0, 1, 2)).toEqual(
-      derivePQCKey(masterSeed, 0, 1, 2)
-    )
+    expect(derivePQCKey(foreignBytes(masterSeed), 0, 1, 2)).toEqual(derivePQCKey(masterSeed, 0, 1, 2))
 
     const leafPrivateKey = patternBytes(32, 13)
-    expect(deriveP2mrDescriptorKey(foreignBytes(leafPrivateKey), 2)).toEqual(
-      deriveP2mrDescriptorKey(leafPrivateKey, 2)
-    )
+    expect(deriveP2mrDescriptorKey(foreignBytes(leafPrivateKey), 2)).toEqual(deriveP2mrDescriptorKey(leafPrivateKey, 2))
 
     expect(client.keygen(foreignBytes(entropy))).toEqual(local)
     expect(client.secretKeyValidate(foreignBytes(local.secretKey))).toBe(true)
@@ -72,12 +66,8 @@ describe('cross-realm Uint8Array inputs', () => {
 
   it('keeps foreign-realm length checks', () => {
     expect(() => keygen(runInNewContext('new Uint8Array(1)') as Uint8Array)).toThrow(RangeError)
-    expect(() => derivePQCKey(runInNewContext('new Uint8Array(0)') as Uint8Array, 0, 0, 0)).toThrow(
-      RangeError
-    )
-    expect(() =>
-      deriveP2mrDescriptorKey(runInNewContext('new Uint8Array(31)') as Uint8Array, 0)
-    ).toThrow(RangeError)
+    expect(() => derivePQCKey(runInNewContext('new Uint8Array(0)') as Uint8Array, 0, 0, 0)).toThrow(RangeError)
+    expect(() => deriveP2mrDescriptorKey(runInNewContext('new Uint8Array(31)') as Uint8Array, 0)).toThrow(RangeError)
   })
 
   it('still accepts Uint8Array subclasses such as Buffer', () => {
@@ -110,8 +100,7 @@ describe('cross-realm Uint8Array inputs', () => {
     }
   })
 
-  const spoofedTag = (target: object) =>
-    Object.defineProperty(target, Symbol.toStringTag, { value: 'Uint8Array' })
+  const spoofedTag = (target: object) => Object.defineProperty(target, Symbol.toStringTag, { value: 'Uint8Array' })
 
   const rejected: Array<[string, () => unknown]> = [
     ['Int8Array', () => new Int8Array(constants.MIN_ENTROPY)],
@@ -121,20 +110,11 @@ describe('cross-realm Uint8Array inputs', () => {
     ['ArrayBuffer', () => new ArrayBuffer(constants.MIN_ENTROPY)],
     ['number array', () => Array.from({ length: constants.MIN_ENTROPY }, () => 0)],
     ['foreign-realm Int8Array', () => runInNewContext(`new Int8Array(${constants.MIN_ENTROPY})`)],
-    [
-      'foreign-realm Uint8ClampedArray',
-      () => runInNewContext(`new Uint8ClampedArray(${constants.MIN_ENTROPY})`),
-    ],
+    ['foreign-realm Uint8ClampedArray', () => runInNewContext(`new Uint8ClampedArray(${constants.MIN_ENTROPY})`)],
     ['foreign-realm DataView', () => runInNewContext('new DataView(new ArrayBuffer(64))')],
-    [
-      'plain object with a fake Symbol.toStringTag',
-      () => spoofedTag({ length: constants.MIN_ENTROPY }),
-    ],
+    ['plain object with a fake Symbol.toStringTag', () => spoofedTag({ length: constants.MIN_ENTROPY })],
     ['Int8Array with a fake Symbol.toStringTag', () => spoofedTag(new Int8Array(constants.MIN_ENTROPY))],
-    [
-      'DataView with a fake Symbol.toStringTag',
-      () => spoofedTag(new DataView(new ArrayBuffer(constants.MIN_ENTROPY))),
-    ],
+    ['DataView with a fake Symbol.toStringTag', () => spoofedTag(new DataView(new ArrayBuffer(constants.MIN_ENTROPY)))],
     ['object inheriting Uint8Array.prototype', () => Object.create(Uint8Array.prototype)],
     ['Proxy around a Uint8Array', () => new Proxy(new Uint8Array(constants.MIN_ENTROPY), {})],
     ['null', () => null],
@@ -145,13 +125,9 @@ describe('cross-realm Uint8Array inputs', () => {
     const pair = keygen(patternBytes(constants.MIN_ENTROPY, 7))
     expect(() => keygen(value)).toThrow(new TypeError('entropy must be a Uint8Array'))
     expect(() => derivePQCKey(value, 0, 0, 0)).toThrow(new TypeError('masterSeed must be a Uint8Array'))
-    expect(() => deriveP2mrDescriptorKey(value, 0)).toThrow(
-      new TypeError('leafPrivateKey must be a Uint8Array')
-    )
+    expect(() => deriveP2mrDescriptorKey(value, 0)).toThrow(new TypeError('leafPrivateKey must be a Uint8Array'))
     expect(() => sign(pair.secretKey, value)).toThrow(new TypeError('msg must be a Uint8Array'))
-    expect(() => verify(pair.publicKey, new Uint8Array(1), value)).toThrow(
-      new TypeError('sig must be a Uint8Array')
-    )
+    expect(() => verify(pair.publicKey, new Uint8Array(1), value)).toThrow(new TypeError('sig must be a Uint8Array'))
     expect(() => secretKeyValidate(value)).toThrow(new TypeError('sk must be a Uint8Array'))
   })
 })

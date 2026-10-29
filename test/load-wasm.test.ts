@@ -188,13 +188,9 @@ describe('@qbit-oss/pqc production TypeScript API', () => {
     const message = hexToBytes(vector.messageHex)
     const pair = client.keygen(deterministicEntropy(vector.seedByte))
 
-    expect(() =>
-      client.keygen(new ArrayBuffer(constants.MIN_ENTROPY) as unknown as Uint8Array)
-    ).toThrow(TypeError)
+    expect(() => client.keygen(new ArrayBuffer(constants.MIN_ENTROPY) as unknown as Uint8Array)).toThrow(TypeError)
     expect(() => client.sign(pair.secretKey, 'message' as unknown as Uint8Array)).toThrow(TypeError)
-    expect(() => client.verify(pair.publicKey, message, 'sig' as unknown as Uint8Array)).toThrow(
-      TypeError
-    )
+    expect(() => client.verify(pair.publicKey, message, 'sig' as unknown as Uint8Array)).toThrow(TypeError)
     expect(() => client.secretKeyValidate('sk' as unknown as Uint8Array)).toThrow(TypeError)
   })
 
@@ -233,9 +229,7 @@ describe('@qbit-oss/pqc production TypeScript API', () => {
   })
 
   it('maps native error codes to typed PqcError values', () => {
-    expect(nativeErrorName(errorCodes.BITCOIN_PQC_ERROR_SIGNING_LIMIT)).toBe(
-      'BITCOIN_PQC_ERROR_SIGNING_LIMIT'
-    )
+    expect(nativeErrorName(errorCodes.BITCOIN_PQC_ERROR_SIGNING_LIMIT)).toBe('BITCOIN_PQC_ERROR_SIGNING_LIMIT')
     expect(nativeErrorKind(errorCodes.BITCOIN_PQC_ERROR_SIGNING_LIMIT)).toBe('SIGNING_LIMIT')
     expect(nativeErrorKind(12345)).toBe('UNKNOWN')
 
@@ -243,10 +237,7 @@ describe('@qbit-oss/pqc production TypeScript API', () => {
     const message = hexToBytes(vector.messageHex)
     const pair = client.keygen(deterministicEntropy(vector.seedByte))
     const { client: rawClient, module } = raw
-    const restore = restoreModuleFunction(module, '_qbit_pqc_sign_with_stats', ((
-      _signatureOut,
-      statsOut
-    ) => {
+    const restore = restoreModuleFunction(module, '_qbit_pqc_sign_with_stats', ((_signatureOut, statsOut) => {
       const stats = new Uint32Array(module.HEAPU8.buffer, statsOut, constants.SIGN_STATS_WORDS)
       stats[0] = 77
       stats[10] = constants.SIGN_LIMITS.FORSC
@@ -254,10 +245,7 @@ describe('@qbit-oss/pqc production TypeScript API', () => {
     }) as PqcWasmModule['_qbit_pqc_sign_with_stats'])
 
     try {
-      const error = expectPqcError(
-        () => rawClient.signWithStats(pair.secretKey, message),
-        'SIGNING_LIMIT'
-      )
+      const error = expectPqcError(() => rawClient.signWithStats(pair.secretKey, message), 'SIGNING_LIMIT')
       expect(error.code).toBe(errorCodes.BITCOIN_PQC_ERROR_SIGNING_LIMIT)
       expect(error.nativeName).toBe('BITCOIN_PQC_ERROR_SIGNING_LIMIT')
       expect(error.stats?.forscAttempts).toBe(77)
@@ -285,9 +273,7 @@ describe('@qbit-oss/pqc production TypeScript API', () => {
     const originalFree = module._free.bind(module)
     const restoreFree = restoreModuleFunction(module, '_free', (ptr => {
       if (ptr === entropyPtr) {
-        sawEntropyZeroedBeforeFree = module.HEAPU8.slice(ptr, ptr + entropy.length).every(
-          byte => byte === 0
-        )
+        sawEntropyZeroedBeforeFree = module.HEAPU8.slice(ptr, ptr + entropy.length).every(byte => byte === 0)
       }
       originalFree(ptr)
     }) as PqcWasmModule['_free'])
@@ -333,16 +319,11 @@ describe('@qbit-oss/pqc production TypeScript API', () => {
     const originalFree = module._free.bind(module)
     const restoreFree = restoreModuleFunction(module, '_free', (ptr => {
       if (ptr === secretKeyPtr) {
-        sawSecretKeyZeroedBeforeFree = module.HEAPU8.slice(ptr, ptr + constants.SK_SIZE).every(
-          byte => byte === 0
-        )
+        sawSecretKeyZeroedBeforeFree = module.HEAPU8.slice(ptr, ptr + constants.SK_SIZE).every(byte => byte === 0)
       }
       originalFree(ptr)
     }) as PqcWasmModule['_free'])
-    const restoreSign = restoreModuleFunction(module, '_qbit_pqc_sign', ((
-      _signatureOut,
-      secretKeyIn
-    ) => {
+    const restoreSign = restoreModuleFunction(module, '_qbit_pqc_sign', ((_signatureOut, secretKeyIn) => {
       sawSecretKeyCopied = module.HEAPU8.slice(secretKeyIn, secretKeyIn + constants.SK_SIZE).every(
         (byte, index) => byte === pair.secretKey[index]
       )
