@@ -191,6 +191,8 @@ corrupted key and what to change after a `SIGNING_LIMIT` error.
   with the fixture vectors.
 - [MV3 conformance](docs/mv3-conformance.md): CSP, WASM packaging, smoke test
   and security checklist for Chrome MV3 extensions.
+- [Using qbit-js](docs/qbit-js.md): message proofs and PSBT signing with
+  qbit-js's `@qbit-oss/protocol`.
 - [Security policy](SECURITY.md): reporting vulnerabilities, supported
   versions, audit status and security boundaries.
 - [Release checklist](RELEASE.md), [release process](RELEASING.md) and

@@ -141,6 +141,7 @@ describe('published docs and fixtures', () => {
         'docs/derivation.md',
         'docs/loading.md',
         'docs/mv3-conformance.md',
+        'docs/qbit-js.md',
         'docs/signing.md',
         'fixtures/qbit-core-derivation.json',
         'fixtures/slh-dsa-golden.json',

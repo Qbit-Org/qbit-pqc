@@ -14,6 +14,10 @@ fixtures/
 wasm/
 native/
 
+# Declarations copied from qbit-js, kept as qbit-js formats them so they can
+# be compared line for line with the commit they name.
+test/types/qbit-js/
+
 # Prose and workflows keep their hand-written wrapping, and pnpm writes
 # pnpm-lock.yaml and package.json itself.
 *.md
