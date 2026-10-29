@@ -67,6 +67,29 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
   [Qbit-Org/qbit-pqc#10](https://github.com/Qbit-Org/qbit-pqc/issues/10)
   tracks these reads. Keys, signatures and the module's exports are unchanged.
 
+- `init()` takes an optional `expectedWasmSha256`, the SHA-256 of `pqc.wasm`
+  as 64 lowercase hex characters, and the new `constants.WASM_SHA256` is the
+  digest that `wasm/SHA256SUMS` pins for this version. With it, `init()`
+  hashes the bytes it is about to compile, whether `wasmBinary`, the embedded
+  copy, or the file that `moduleUrl` or `locateFile` names, and rejects with a
+  `PqcLoadError` that names both digests before compiling other bytes. It
+  reads such a file itself, with `fetch()` or, in Node, from the file system,
+  and calls the factory once, with the bytes as `wasmBinary`. To locate the
+  file, it calls `locateFile` itself with the `prefix` the loader would pass;
+  with `createModule`, that is the package's `wasm/` directory rather than the
+  directory of the caller's copy of the loader. A bare `moduleUrl` is
+  resolved with `import.meta.resolve`, and rejects where there is none; a
+  `moduleUrl` that cannot be resolved rejects rather than falling back to the
+  package's `pqc.wasm`. In Node, a `locateFile` that returns a URL other than
+  a `file://` URL is refused with an error naming its scheme. These apply only
+  with `expectedWasmSha256`. Any other value of the option rejects with a
+  `TypeError` before anything loads, and calls with different digests do not
+  share a load. The loader `pqc.mjs`, and a factory that ignores
+  `wasmBinary`, are not checked. Without the option, `init()` loads as before.
+  `constants.WASM_SHA256` is read from `wasm/SHA256SUMS` when the package is
+  built, and the build fails unless `wasm/pqc.wasm`, the copy it embeds, has
+  that digest.
+
 ### Native library
 
 - The vendored `libbitcoinpqc` is pinned to `Qbit-Org/qbit-libbitcoinpqc` at

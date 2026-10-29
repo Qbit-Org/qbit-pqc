@@ -312,6 +312,13 @@ export const constants = Object.freeze({
     WOTSC: 2,
   } as const),
   ERROR_CODES: errorCodes,
+  /**
+   * The SHA-256 of the `pqc.wasm` this version of the package ships and embeds,
+   * in lowercase hex: its line in `wasm/SHA256SUMS`. Pass it as
+   * `init({ expectedWasmSha256: constants.WASM_SHA256 })` to have `init()`
+   * refuse any other bytes.
+   */
+  WASM_SHA256: __PQC_WASM_SHA256__,
 } as const)
 
 /** A key pair, as {@link keygen} returns it. */
@@ -494,12 +501,15 @@ export class PqcError extends Error {
  * Rejects `init()` when it cannot load the WASM module: the loader cannot be
  * imported or exports no factory, or it cannot fetch, compile or instantiate
  * pqc.wasm, as under a CSP without 'wasm-unsafe-eval'. A `createModule`
- * factory that fails, and a module that does not match this version of the
- * package, count too. `url` is the file that failed, when init() knows it:
+ * factory that fails, a module that does not match this version of the
+ * package, and WASM bytes whose SHA-256 is not `expectedWasmSha256` count
+ * too. `url` is the file that failed, when init() knows it:
  * the `moduleUrl` loader, when that cannot be imported or exports no factory,
- * or the location the loader asked for pqc.wasm at. Otherwise it is
- * undefined, as when the loader had the bytes (the embedded copy, or
- * `wasmBinary`) and fetched nothing. `status` is the HTTP status of an error
+ * or the location the loader asked for pqc.wasm at, or, with
+ * `expectedWasmSha256`, the pqc.wasm file init() could not read or whose
+ * digest differs. Otherwise it is undefined, as when the loader had the bytes
+ * (the embedded copy, `wasmBinary`, or a file init() read and checked) and
+ * fetched nothing. `status` is the HTTP status of an error
  * response for `url`, when a browser got one; it is undefined for a file, in
  * Node, and when the request failed without a response. `cause` is the
  * original error, and the message names it too.
@@ -508,9 +518,11 @@ export class PqcLoadError extends PqcError {
   /** Always `'LOAD_FAILED'`. */
   override readonly kind: 'LOAD_FAILED'
   /**
-   * The file that failed, when `init()` knows it: the `moduleUrl` loader, or
-   * the location the loader asked for `pqc.wasm` at. Undefined otherwise, as
-   * when the loader had the bytes and fetched nothing.
+   * The file that failed, when `init()` knows it: the `moduleUrl` loader, the
+   * location the loader asked for `pqc.wasm` at, or, with
+   * `expectedWasmSha256`, the `pqc.wasm` file `init()` could not read or whose
+   * digest differs. Undefined otherwise, as when the loader had the bytes and
+   * fetched nothing.
    */
   readonly url: string | undefined
   /**
@@ -700,6 +712,33 @@ export interface InitOptions extends Omit<PqcWasmModuleOptions, 'qbitPqcIntrinsi
    * of `pqc.wasm`, so nothing is fetched.
    */
   createModule?: PqcWasmModuleFactory
+  /**
+   * The SHA-256 that the `pqc.wasm` bytes must have, as 64 lowercase hex
+   * characters; usually `constants.WASM_SHA256`. `init()` then hashes the bytes
+   * it is about to compile, whether `wasmBinary`, the embedded copy, or the
+   * file that `moduleUrl` or `locateFile` names, which it reads itself and
+   * passes to the factory as `wasmBinary`, calling the factory once. Bytes
+   * with another digest reject with a {@link PqcLoadError} before anything is
+   * compiled. Any value other than undefined or such a string rejects with a
+   * TypeError before anything loads.
+   *
+   * `init()` works out the file's location without the factory: it calls
+   * `locateFile` with the directory of the `moduleUrl` loader as `prefix` or,
+   * when `moduleUrl` is not in effect (as with `createModule`), the package's
+   * own `wasm/` directory, not that of the caller's copy of the loader. A
+   * relative `moduleUrl` is resolved against the package's own module URL,
+   * which a bundler such as webpack may rewrite to a path on the build
+   * machine, so pass an absolute URL. A bare specifier goes through
+   * `import.meta.resolve`, and rejects where there is none. A wrong location,
+   * or a `moduleUrl` that cannot be resolved, fails closed: `init()` rejects
+   * and compiles nothing. In Node, a `locateFile` that returns a URL other
+   * than a `file://` URL rejects. For the most predictable result, have
+   * `locateFile` return an absolute URL, or pass `wasmBinary`.
+   *
+   * The loader (`pqc.mjs`, or a `createModule` factory) is not checked, and a
+   * factory that ignores `wasmBinary` can compile other bytes.
+   */
+  expectedWasmSha256?: string
 }
 
 /**
@@ -892,14 +931,19 @@ async function errorResponseStatus(url: string, base?: string): Promise<number |
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), STATUS_REQUEST_TIMEOUT_MS)
   try {
-    const response = await fetch(target, { credentials: 'same-origin', signal: controller.signal })
-    response.body?.cancel().catch(() => undefined)
-    return response.ok ? undefined : response.status
+    return errorStatus(await fetch(target, { credentials: 'same-origin', signal: controller.signal }))
   } catch {
     return undefined
   } finally {
     clearTimeout(timer)
   }
+}
+
+// The status of an error response, or undefined for a 2xx one. Only the
+// status is wanted, so the body is cancelled rather than downloaded.
+function errorStatus(response: Response): number | undefined {
+  response.body?.cancel().catch(() => undefined)
+  return response.ok ? undefined : response.status
 }
 
 async function loadError(url: string, cause: unknown, base?: string): Promise<PqcLoadError> {
@@ -932,22 +976,27 @@ async function loadFactory(moduleUrl: string | URL): Promise<PqcWasmModuleFactor
  *
  * A call whose options match those of the most recent call shares its load:
  * the calls return distinct promises that resolve to the same client, and a
- * call with other options starts a new load. Options are the same when `moduleUrl` has
- * the same string form and `createModule`, `locateFile` and `wasmBinary` are
- * the same objects; `init()`, `init(undefined)` and `init({})` are the same.
- * The named exports use the client of the newest call that succeeded: an
- * earlier call that settles later does not replace it, and a call that fails
- * leaves the published client in place.
+ * call with other options starts a new load. Options are the same when
+ * `moduleUrl` has the same string form, `createModule`, `locateFile` and
+ * `wasmBinary` are the same objects, and `expectedWasmSha256` is the same
+ * string; `init()`, `init(undefined)` and `init({})` are the same. The named
+ * exports use the client of the newest call that succeeded: an earlier call
+ * that settles later does not replace it, and a call that fails leaves the
+ * published client in place.
  *
  * Rejects with a {@link PqcLoadError} when the WASM module cannot be loaded:
  * the loader cannot be imported or exports no factory, it cannot fetch,
- * compile or instantiate `pqc.wasm`, or the module does not match this
- * version of the package.
+ * compile or instantiate `pqc.wasm`, the bytes do not have the
+ * `expectedWasmSha256` digest, or the module does not match this version of
+ * the package. Rejects with a TypeError when `expectedWasmSha256` is not
+ * undefined or 64 lowercase hex characters.
  */
 export async function init(options: InitOptions = {}): Promise<PqcClient> {
+  // Read once, so the digest that is validated is the one the load checks.
+  const expectedWasmSha256 = readExpectedWasmSha256(options.expectedWasmSha256)
   initCalls += 1
   const call = initCalls
-  const client = await sharedLoad(options)
+  const client = await sharedLoad(options, expectedWasmSha256)
   if (call > publishedCall) {
     publishedCall = call
     activeClient = client
@@ -957,13 +1006,25 @@ export async function init(options: InitOptions = {}): Promise<PqcClient> {
   return client
 }
 
-function sharedLoad(options: InitOptions): Promise<PqcClient> {
-  const key = initKey(options)
+const SHA256_HEX = /^[0-9a-f]{64}$/
+
+function readExpectedWasmSha256(value: unknown): string | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+  if (typeof value !== 'string' || !SHA256_HEX.test(value)) {
+    throw new TypeError('options.expectedWasmSha256 must be a SHA-256 digest in 64 lowercase hex characters')
+  }
+  return value
+}
+
+function sharedLoad(options: InitOptions, expectedWasmSha256: string | undefined): Promise<PqcClient> {
+  const key = initKey(options, expectedWasmSha256)
   const latest = latestLoad
   if (latest !== undefined && key.every((value, i) => value === latest.key[i])) {
     return latest.client
   }
-  const load = { key, client: loadClient(options) }
+  const load = { key, client: loadClient(options, expectedWasmSha256) }
   latestLoad = load
   // A failed load is not shared. By the time it fails, a later call may have
   // replaced it, and that call's load stays.
@@ -975,13 +1036,22 @@ function sharedLoad(options: InitOptions): Promise<PqcClient> {
   return load.client
 }
 
-function initKey({ moduleUrl, createModule, locateFile, wasmBinary }: InitOptions): unknown[] {
-  return [moduleUrl === undefined ? undefined : String(moduleUrl), createModule, locateFile, wasmBinary]
+function initKey(
+  { moduleUrl, createModule, locateFile, wasmBinary }: InitOptions,
+  expectedWasmSha256: string | undefined
+): unknown[] {
+  return [
+    moduleUrl === undefined ? undefined : String(moduleUrl),
+    createModule,
+    locateFile,
+    wasmBinary,
+    expectedWasmSha256,
+  ]
 }
 
-async function loadClient(options: InitOptions): Promise<PqcClient> {
+async function loadClient(options: InitOptions, expectedWasmSha256: string | undefined): Promise<PqcClient> {
   try {
-    return createPqcClient(await loadModule(options))
+    return createPqcClient(await loadModule(options, expectedWasmSha256))
   } catch (error) {
     // Any step can fail: one of the package's own imports, such as a bundler's
     // chunk for the loader that a deploy replaced; the factory, as when a CSP
@@ -992,7 +1062,7 @@ async function loadClient(options: InitOptions): Promise<PqcClient> {
   }
 }
 
-async function loadModule(options: InitOptions): Promise<PqcWasmModule> {
+async function loadModule(options: InitOptions, expectedWasmSha256: string | undefined): Promise<PqcWasmModule> {
   const { moduleUrl, createModule, locateFile, wasmBinary } = options
   // createModule takes precedence over moduleUrl.
   const fromModuleUrl = createModule === undefined && moduleUrl !== undefined
@@ -1007,12 +1077,27 @@ async function loadModule(options: InitOptions): Promise<PqcWasmModule> {
   // come from the same copy, and the package's own copy otherwise. With the
   // bytes in hand, the factory loads no file, whatever the location.
   const locateDefault = fromModuleUrl ? locateBesideModule : bytes === undefined ? packageFileUrl : locateUnloaded
+  const locate = (path: string, prefix: string): string => locateFile?.(path, prefix) ?? locateDefault(path, prefix)
+  if (expectedWasmSha256 !== undefined) {
+    if (bytes !== undefined) {
+      // The caller's wasmBinary is copied, so that writing to it later cannot
+      // change what is compiled; the embedded copy is private already.
+      const checked = bytes === wasmBinary ? copyWasmBinary(bytes) : (bytes as Uint8Array)
+      return loadCheckedModule(moduleFactory, checked, expectedWasmSha256, undefined, locate)
+    }
+    // The file the factory would load, which init() reads itself, so the
+    // factory needs no call to say where it is.
+    const located = locate('pqc.wasm', loaderDirectory(fromModuleUrl ? moduleUrl : undefined))
+    return loadCheckedModule(moduleFactory, await readWasm(located), expectedWasmSha256, located, (path, prefix) =>
+      path === 'pqc.wasm' ? located : locate(path, prefix)
+    )
+  }
   // Where the factory loads pqc.wasm from, when it has no bytes.
   let wasmUrl: string | undefined
   const moduleOptions: PqcWasmModuleOptions = {
     qbitPqcIntrinsics: GLUE_INTRINSICS,
     locateFile: (path, prefix) => {
-      const located = locateFile?.(path, prefix) ?? locateDefault(path, prefix)
+      const located = locate(path, prefix)
       if (path === 'pqc.wasm') {
         wasmUrl = located
       }
@@ -1033,6 +1118,195 @@ async function loadModule(options: InitOptions): Promise<PqcWasmModule> {
       ? await loadError(wasmUrl, error, globalThis.location?.href)
       : error
   }
+}
+
+// With expectedWasmSha256: the factory is called once, with the bytes as
+// wasmBinary, after they have been hashed. `wasmUrl` is the file they were read
+// from, if any, which a mismatch names. Once the bytes are in hand nothing
+// more is read, so a compile failure has no file to name.
+async function loadCheckedModule(
+  moduleFactory: PqcWasmModuleFactory,
+  checked: Uint8Array,
+  expectedWasmSha256: string,
+  wasmUrl: string | undefined,
+  locateFile: (path: string, prefix: string) => string
+): Promise<PqcWasmModule> {
+  const actual = toHex(sha256(checked))
+  if (actual !== expectedWasmSha256) {
+    throw new PqcLoadError(wasmUrl, undefined, {
+      cause: new Error(`SHA-256 ${actual} does not match expectedWasmSha256 ${expectedWasmSha256}`),
+    })
+  }
+  return moduleFactory({ qbitPqcIntrinsics: GLUE_INTRINSICS, locateFile, wasmBinary: checked })
+}
+
+// The `prefix` Emscripten's factory passes to locateFile: the directory of the
+// module that defines it, as a file path in Node and a URL elsewhere, or ''
+// when that module's URL has none (blob:, data:, or the empty import.meta of
+// an IIFE bundle). That module is `moduleUrl`, resolved as import() resolves
+// it here, or else the package's own loader, beside its pqc.wasm. A
+// `moduleUrl` that cannot be resolved rejects rather than falling back to the
+// package's pqc.wasm, which need not match a loader from another copy.
+function loaderDirectory(moduleUrl: string | URL | undefined): string {
+  let url: URL
+  if (moduleUrl === undefined) {
+    try {
+      url = new URL(packageFileUrl('pqc.mjs'))
+    } catch {
+      return ''
+    }
+  } else {
+    url = resolveModuleUrl(String(moduleUrl))
+  }
+  if (isNode()) {
+    if (url.protocol !== 'file:') {
+      return ''
+    }
+    const { dirname } = process.getBuiltinModule('path')
+    const { fileURLToPath } = process.getBuiltinModule('url')
+    return `${dirname(realLoaderPath(fileURLToPath(url), moduleUrl))}/`
+  }
+  try {
+    return new URL('.', url).href
+  } catch {
+    return ''
+  }
+}
+
+// Node's module resolution follows symlinks, unless it runs with
+// --preserve-symlinks, so a loader imported through a symlink has the real
+// file's URL and looks for pqc.wasm beside that. A `moduleUrl` whose real path
+// cannot be found rejects; for the package's own loader, which init() may not
+// have imported, the path is kept as it is.
+function realLoaderPath(path: string, moduleUrl: string | URL | undefined): string {
+  if (preservesSymlinks()) {
+    return path
+  }
+  try {
+    return process.getBuiltinModule('fs').realpathSync(path)
+  } catch (error) {
+    if (moduleUrl === undefined) {
+      return path
+    }
+    throw unresolvedModuleUrl(String(moduleUrl), error)
+  }
+}
+
+// --preserve-symlinks on Node's command line or in NODE_OPTIONS, or
+// NODE_PRESERVE_SYMLINKS=1, which turns on the same resolver option.
+function preservesSymlinks(): boolean {
+  const options = process.env['NODE_OPTIONS']?.split(/\s+/) ?? []
+  return (
+    process.env['NODE_PRESERVE_SYMLINKS'] === '1' ||
+    process.execArgv.includes('--preserve-symlinks') ||
+    options.includes('--preserve-symlinks')
+  )
+}
+
+// How import() resolves `moduleUrl` from this module. A bare specifier, one
+// that is neither a URL nor a path starting with /, ./ or ../, goes through
+// import.meta.resolve, which applies package exports and import maps; without
+// it (a bundler may strip it), init() cannot know what the name resolves to.
+// Anything else is resolved against this module's URL, which a bundler may
+// have rewritten.
+function resolveModuleUrl(moduleUrl: string): URL {
+  const bare = isBareSpecifier(moduleUrl)
+  if (bare && typeof import.meta.resolve !== 'function') {
+    throw new PqcLoadError(moduleUrl, undefined, {
+      cause: new TypeError(
+        'a bare moduleUrl needs import.meta.resolve, which this runtime or bundle lacks, ' +
+          'to find the pqc.wasm beside it: pass an absolute URL'
+      ),
+    })
+  }
+  try {
+    return bare ? new URL(import.meta.resolve(moduleUrl)) : new URL(moduleUrl, import.meta.url)
+  } catch (error) {
+    throw unresolvedModuleUrl(moduleUrl, error)
+  }
+}
+
+function unresolvedModuleUrl(moduleUrl: string, error: unknown): PqcLoadError {
+  const reason = causeReason(error)
+  return new PqcLoadError(moduleUrl, undefined, {
+    cause: new TypeError(
+      `moduleUrl cannot be resolved${reason === '' ? '' : ` (${reason})`} ` +
+        'to find the pqc.wasm beside it: pass an absolute URL'
+    ),
+  })
+}
+
+function isBareSpecifier(specifier: string): boolean {
+  return !/^\.{0,2}\//.test(specifier) && !isUrl(specifier)
+}
+
+// Whether `location` is a URL rather than a path: it parses as one with `//`
+// after its scheme, or is a data:, blob: or file: URL (file:/x is absolute
+// too). A path can hold a colon, as in build:v2/pqc.wasm or a Windows drive
+// letter, which takes a one-letter scheme.
+function isUrl(location: string): boolean {
+  if (/^(?:data|blob|file):/i.test(location)) {
+    return true
+  }
+  if (!/^[a-z][a-z0-9+.-]+:\/\//i.test(location)) {
+    return false
+  }
+  try {
+    new URL(location)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Reads pqc.wasm as the loader does: from the file system in Node, where a
+// file:// URL (the loader's own test) or a path names the file, and with
+// fetch() elsewhere. Any other URL in Node, which the loader would also try as
+// a path, is refused.
+async function readWasm(url: string): Promise<Uint8Array> {
+  if (isNode()) {
+    const isFileUrl = url.startsWith('file://')
+    if (!isFileUrl && isUrl(url)) {
+      const scheme = url.slice(0, url.indexOf(':') + 1)
+      throw new PqcLoadError(url, undefined, {
+        cause: new TypeError(
+          `URL scheme ${scheme} is not supported: in Node, init() reads pqc.wasm from a path or a file:// URL`
+        ),
+      })
+    }
+    try {
+      return process.getBuiltinModule('fs').readFileSync(isFileUrl ? new URL(url) : url)
+    } catch (error) {
+      throw new PqcLoadError(url, undefined, { cause: error })
+    }
+  }
+  let response: Response
+  try {
+    response = await fetch(url, { credentials: 'same-origin' })
+    if (response.ok) {
+      return new IntrinsicUint8Array(await response.arrayBuffer())
+    }
+  } catch (error) {
+    throw new PqcLoadError(url, undefined, { cause: error })
+  }
+  throw new PqcLoadError(url, errorStatus(response))
+}
+
+// One copy, made with the captured constructor: a Uint8Array is copied by it,
+// and an ArrayBuffer, which it would only view, is viewed first.
+function copyWasmBinary(binary: ArrayBuffer | Uint8Array): Uint8Array {
+  return new IntrinsicUint8Array(isUint8Array(binary) ? binary : new IntrinsicUint8Array(binary))
+}
+
+const HEX_DIGITS = '0123456789abcdef'
+
+function toHex(bytes: Uint8Array): string {
+  let text = ''
+  for (let i = 0; i < typedArrayLength(bytes); i += 1) {
+    const byte = bytes[i]!
+    text += HEX_DIGITS[byte >>> 4]! + HEX_DIGITS[byte & 0x0f]!
+  }
+  return text
 }
 
 /** Whether `init()` has published a client, so the named exports can be called. */

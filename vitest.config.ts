@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 
 import { defineConfig } from 'vitest/config'
 
+import { pinnedWasmSha256 } from './scripts/wasm-sha256.mjs'
+
 export default defineConfig({
   plugins: [
     {
@@ -17,6 +19,9 @@ export default defineConfig({
       },
     },
   ],
+  // constants.WASM_SHA256, as the build defines it (tsup.config.ts). Vitest sets
+  // it on globalThis rather than replacing it in the source.
+  define: { __PQC_WASM_SHA256__: JSON.stringify(pinnedWasmSha256()) },
   test: {
     globals: true,
     environment: 'node',

@@ -74,8 +74,13 @@ extension, together with `LICENSE` and `THIRD_PARTY_NOTICES`
 (`@qbit-oss/pqc/LICENSE`, `@qbit-oss/pqc/THIRD_PARTY_NOTICES`), which carry the
 notices for the code in those artifacts.
 
-`wasm/SHA256SUMS` is release evidence, not a runtime check: `init()` does not
-hash the WASM it compiles, whether embedded, loaded from a file, or passed as
-`wasmBinary`. The package's checks compare `wasm/pqc.mjs`, `wasm/pqc.wasm` and
-the embedded copy with it before a release. To check the copies you ship,
-compare them with `wasm/SHA256SUMS` when you build.
+`wasm/SHA256SUMS` is release evidence: the package's checks compare
+`wasm/pqc.mjs`, `wasm/pqc.wasm` and the embedded copy with it before a
+release. To check the copies you ship, compare them with `wasm/SHA256SUMS` when
+you build. `init()` hashes the WASM it compiles only when asked to:
+`init({ expectedWasmSha256: constants.WASM_SHA256 })` rejects bytes with any
+other SHA-256 before compiling them, whether embedded, loaded from a file, or
+passed as `wasmBinary`. That runtime check does not cover the loader
+`pqc.mjs` or a `createModule` factory, which run unchecked, a factory that
+ignores `wasmBinary`, or code that runs earlier in the same JavaScript
+context. [Checking pqc.wasm](docs/loading.md#checking-pqcwasm) describes it.
