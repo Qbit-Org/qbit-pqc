@@ -236,6 +236,6 @@ trusted publishing takes over from the next release.
 
 ## Status
 
-Nothing is published yet. The first version is published with the bootstrap
-token described in "First publish", and every later version through the
-package's trusted publisher.
+0.1.0 was published to npm on 2026-10-26 under `latest`, with the bootstrap
+token described in "First publish". Every later version is published through
+the package's trusted publisher.

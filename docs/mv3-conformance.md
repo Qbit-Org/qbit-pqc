@@ -57,8 +57,8 @@ no `pqc.wasm` file.
 Call `init()` when the service worker starts, and have event handlers
 `await ready()` before they sign or verify: the client does not survive a
 service-worker restart. Signing blocks the service worker for about 0.6 s per
-signature; the README's "Service workers" section describes signing in a
-Worker that an offscreen document starts instead.
+signature; [Service workers](loading.md#service-workers) describes signing in
+a Worker that an offscreen document starts instead.
 
 The package MV3 smoke packs `@qbit-oss/pqc`, installs that tarball in
 a clean project outside the repository, copies the installed runtime artifacts
