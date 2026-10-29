@@ -284,15 +284,32 @@ export interface PqcKeyPair {
 }
 
 /**
- * A derived key pair, as {@link deriveP2mrDescriptorKey} and
- * {@link derivePQCKey} return it: the pair `keygen` gives for 128 bytes of
- * entropy derived with HKDF-SHA256, as qbit Core derives them.
+ * A derived key pair: the pair `keygen` gives for 128 bytes of entropy derived
+ * with HKDF-SHA256, as qbit Core derives them. {@link deriveP2mrDescriptorKey}
+ * and {@link derivePQCKey} return it as a {@link PqcDerivedKeyPair}, which also
+ * holds the keys under `keygen`'s names.
  */
 export interface PqcDerivedKey {
   /** The public key, `constants.PK_SIZE` (32) bytes. */
   pk32: Uint8Array
   /** The secret key, `constants.SK_SIZE` (64) bytes. */
   sk64: Uint8Array
+}
+
+/**
+ * What {@link deriveP2mrDescriptorKey} and {@link derivePQCKey} return: a
+ * {@link PqcDerivedKey} that also holds its keys under the names
+ * {@link PqcKeyPair} uses. `publicKey` and `secretKey` are the same arrays as
+ * `pk32` and `sk64`, not copies, so zeroing either name zeroes both.
+ */
+export interface PqcDerivedKeyPair extends PqcDerivedKey {
+  /** The same Uint8Array as `pk32`, under {@link PqcKeyPair}'s name. */
+  publicKey: Uint8Array
+  /**
+   * The same Uint8Array as `sk64`, under {@link PqcKeyPair}'s name: zeroing
+   * either zeroes both.
+   */
+  secretKey: Uint8Array
 }
 
 /**
@@ -628,7 +645,7 @@ export interface PqcClient {
    * importing the wallet's descriptor into Core never finds. Derive wallet keys
    * with {@link PqcClient.deriveP2mrDescriptorKey}.
    */
-  derivePQCKey(masterSeed: Uint8Array, hkdfAccount: number, hkdfChange: number, hkdfIndex: number): PqcDerivedKey
+  derivePQCKey(masterSeed: Uint8Array, hkdfAccount: number, hkdfChange: number, hkdfIndex: number): PqcDerivedKeyPair
   /**
    * The P2MR key qbit Core's descriptor wallet derives for a `pqc(...)` key
    * (`P2MRPubkeyProvider::GetPubKey`): `derivePQCKey(leafPrivateKey, 0, 0,
@@ -647,7 +664,7 @@ export interface PqcClient {
    *   descriptor pass 0, whatever the leaf's path: Core derives those keys with
    *   HKDF index 0.
    */
-  deriveP2mrDescriptorKey(leafPrivateKey: Uint8Array, rangeIndex: number): PqcDerivedKey
+  deriveP2mrDescriptorKey(leafPrivateKey: Uint8Array, rangeIndex: number): PqcDerivedKeyPair
   /**
    * Signs `msg` with `sk`. Sign a 32-byte digest, as qbit Core does with its
    * sighashes: every FORS+C grind attempt hashes the whole message, so the
@@ -1045,7 +1062,7 @@ export function derivePQCKey(
   hkdfAccount: number,
   hkdfChange: number,
   hkdfIndex: number
-): PqcDerivedKey {
+): PqcDerivedKeyPair {
   return getActiveClient('derivePQCKey').derivePQCKey(masterSeed, hkdfAccount, hkdfChange, hkdfIndex)
 }
 
@@ -1057,7 +1074,7 @@ export function derivePQCKey(
  * qbit Core's descriptor wallet derives from a 32-byte BIP32 leaf private key
  * at a non-hardened range position.
  */
-export function deriveP2mrDescriptorKey(leafPrivateKey: Uint8Array, rangeIndex: number): PqcDerivedKey {
+export function deriveP2mrDescriptorKey(leafPrivateKey: Uint8Array, rangeIndex: number): PqcDerivedKeyPair {
   return getActiveClient('deriveP2mrDescriptorKey').deriveP2mrDescriptorKey(leafPrivateKey, rangeIndex)
 }
 
@@ -1392,7 +1409,7 @@ function derivePQCKeyWithKeygen(
   hkdfAccount: number,
   hkdfChange: number,
   hkdfIndex: number
-): PqcDerivedKey {
+): PqcDerivedKeyPair {
   const seed = pinBytes('masterSeed', masterSeed)
   assertNonEmpty(seed)
   // The messages keep Core's DerivePQCKey field names.
@@ -1410,7 +1427,7 @@ function deriveP2mrDescriptorKeyWithKeygen(
   runKeygen: (entropy: Uint8Array) => PqcKeyPair,
   leafPrivateKey: Uint8Array,
   rangeIndex: number
-): PqcDerivedKey {
+): PqcDerivedKeyPair {
   const leaf = pinBytes('leafPrivateKey', leafPrivateKey)
   assertExactLength(leaf, P2MR_LEAF_KEY_SIZE)
   if (!isSecp256k1PrivateKey(leaf.view)) {
@@ -1445,7 +1462,7 @@ function deriveKeyFromSeed(
   hkdfAccount: number,
   hkdfChange: number,
   hkdfIndex: number
-): PqcDerivedKey {
+): PqcDerivedKeyPair {
   // The hash reads a module-owned copy of the validated bytes, taken before
   // anything else runs, so whatever later happens to the caller's buffer
   // (detached, shrunk or rewritten) cannot change what it hashes.
@@ -1459,9 +1476,13 @@ function deriveKeyFromSeed(
   }
   try {
     const pair = runKeygen(entropy)
+    // The aliases hold the same arrays, so a caller that zeroes one name
+    // leaves no copy of the secret key behind under the other.
     return {
       pk32: pair.publicKey,
       sk64: pair.secretKey,
+      publicKey: pair.publicKey,
+      secretKey: pair.secretKey,
     }
   } finally {
     typedArrayFill(entropy, 0)

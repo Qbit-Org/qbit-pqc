@@ -301,7 +301,12 @@ describe('WASM linear-memory secret residue', () => {
         'derived entropy': derivedEntropy,
       }
       const { value } = await probe(secrets, 'burned', client => client.derivePQCKey(masterSeed, 0, 0, 0))
-      expect(value).toEqual({ pk32: derived.publicKey, sk64: derived.secretKey })
+      expect(value).toEqual({
+        pk32: derived.publicKey,
+        sk64: derived.secretKey,
+        publicKey: derived.publicKey,
+        secretKey: derived.secretKey,
+      })
     })
 
     it('rejects an index outside uint32', async () => {

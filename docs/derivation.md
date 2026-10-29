@@ -181,6 +181,16 @@ the public `derivePQCKey(...)` API. It also checks that
 `deriveP2mrDescriptorKey(...)` reproduces the descriptor-generation vectors,
 not the recovery-only one, and rejects the primitive-only index.
 
+Every file in `fixtures/` ships in the npm package and loads by name through
+the package's `./fixtures/*` export, so downstream tests can check keys and
+signatures against these vectors without regenerating them:
+`import vectors from '@qbit-oss/pqc/fixtures/qbit-core-derivation.json' with { type: 'json' }`.
+`derivePQCKey` and `deriveP2mrDescriptorKey` return the keys as `pk32` and
+`sk64`, and also as `publicKey` and `secretKey`, the names `keygen` uses, for
+the same arrays: in
+`const { publicKey, secretKey } = deriveP2mrDescriptorKey(leaf, index)`,
+zeroing `secretKey` zeroes `sk64` too.
+
 ## Core Binary Oracle
 
 `fixtures/qbit-core-derivation.json` above was produced by a C++ harness that
