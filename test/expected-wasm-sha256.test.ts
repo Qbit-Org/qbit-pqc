@@ -434,15 +434,32 @@ describe('init({ expectedWasmSha256 })', () => {
   })
 
   it.each([
-    ['a single-slash file: URL', (path: string) => `file:${path}`],
-    ['an upper-case FILE:// URL', (path: string) => `FILE://${path}`],
-  ])('reads %s from the file system in Node', async (_name, toLocation) => {
+    ['a single-slash file: URL', (path: string) => `file:${path}`, 'file:'],
+    ['an upper-case FILE:// URL', (path: string) => `FILE://${path}`, 'FILE:'],
+  ])('refuses %s in Node, as the loader would, with a clear reason', async (_name, toLocation, scheme) => {
     const pqc = await freshPqc()
+    const compiled = spyOnCompile()
     const location = toLocation(join(wasmDir, 'pqc.wasm'))
 
-    const client = await pqc.init({ locateFile: () => location, expectedWasmSha256: pinnedSha256 })
+    const error = await rejection(pqc.init({ locateFile: () => location, expectedWasmSha256: pinnedSha256 }))
 
-    expect(client.constants.PK_SIZE).toBe(32)
+    const reason = `a ${scheme} URL must start with file:// (lower case), as the loader reads it`
+    expect(error).toMatchObject({
+      kind: 'LOAD_FAILED',
+      url: location,
+      message: `init() could not load ${location}: ${reason}`,
+    })
+    expect(compiled()).toEqual([])
+  })
+
+  it('names moduleUrl when its file: URL has a remote host', async () => {
+    const pqc = await freshPqc()
+    const moduleUrl = 'file://server.example/share/pqc.mjs'
+
+    const error = await rejection(pqc.init({ moduleUrl, expectedWasmSha256: pinnedSha256 }))
+
+    expect(error).toMatchObject({ kind: 'LOAD_FAILED', url: moduleUrl })
+    expect(String((error as Error).message)).toContain(`init() could not load ${moduleUrl}`)
   })
 
   it('reads a relative path with a colon in its first segment as a path in Node', async () => {

@@ -891,7 +891,17 @@ function loaderDirectory(moduleUrl: string | URL | undefined): string {
     }
     const { dirname } = process.getBuiltinModule('path')
     const { fileURLToPath } = process.getBuiltinModule('url')
-    return `${dirname(realLoaderPath(fileURLToPath(url), moduleUrl))}/`
+    let path: string
+    try {
+      // Throws for a file: URL with a remote host on POSIX.
+      path = fileURLToPath(url)
+    } catch (error) {
+      if (moduleUrl === undefined) {
+        return ''
+      }
+      throw unresolvedModuleUrl(String(moduleUrl), error)
+    }
+    return `${dirname(realLoaderPath(path, moduleUrl))}/`
   }
   try {
     return new URL('.', url).href
@@ -990,19 +1000,19 @@ function isUrl(location: string): boolean {
   }
 }
 
-// Reads pqc.wasm from the file system in Node, where a file: URL (in any case,
-// with or without //) or a path names the file, and with fetch() elsewhere.
-// Any other URL in Node is refused.
+// Reads pqc.wasm as the loader would: from the file system in Node, where a
+// path or a URL starting with file:// (the loader's own test) names the file,
+// and with fetch() elsewhere. Any other URL in Node is refused, file:/x and
+// FILE:// included, which the loader would read as a missing path.
 async function readWasm(url: string): Promise<Uint8Array> {
   if (isNode()) {
-    const isFileUrl = /^file:/i.test(url)
+    const isFileUrl = url.startsWith('file://')
     if (!isFileUrl && isUrl(url)) {
       const scheme = url.slice(0, url.indexOf(':') + 1)
-      throw new PqcLoadError(url, undefined, {
-        cause: new TypeError(
-          `URL scheme ${scheme} is not supported: in Node, init() reads pqc.wasm from a path or a file:// URL`
-        ),
-      })
+      const reason = /^file:/i.test(url)
+        ? `a ${scheme} URL must start with file:// (lower case), as the loader reads it`
+        : `URL scheme ${scheme} is not supported: in Node, init() reads pqc.wasm from a path or a file:// URL`
+      throw new PqcLoadError(url, undefined, { cause: new TypeError(reason) })
     }
     try {
       return process.getBuiltinModule('fs').readFileSync(isFileUrl ? new URL(url) : url)
