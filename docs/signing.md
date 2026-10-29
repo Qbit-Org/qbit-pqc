@@ -20,6 +20,9 @@ Chrome MV3 service worker, and varying with the attempts each message needs:
 | 256 KiB | 25–80 s |
 | 1 MiB | 60–80 s, and 105 s in an MV3 service worker |
 
+For PSBTs and message proofs, qbit-js computes the 32-byte digests to sign; see
+[Using @qbit-oss/pqc with qbit-js](qbit-js.md).
+
 The `SIGNING_LIMIT` cap on grind attempts (see [Usage bound](#usage-bound))
 does not bound this time: at 1 MiB, about an hour would pass before it fired.
 Verifying stays fast, about 2.5 ms at 1 MiB, but copying a message into WASM

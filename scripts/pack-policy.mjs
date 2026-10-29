@@ -10,6 +10,7 @@ const REQUIRED_FILES = [
   'docs/derivation.md',
   'docs/loading.md',
   'docs/mv3-conformance.md',
+  'docs/qbit-js.md',
   'docs/signing.md',
   'fixtures/qbit-core-binary-derivation.json',
   'fixtures/qbit-core-derivation.json',
