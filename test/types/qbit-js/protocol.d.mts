@@ -1,11 +1,13 @@
-// Declarations from Qbit-Org/qbit-js packages/protocol/src/index.ts at
+// Declarations copied from Qbit-Org/qbit-js packages/protocol/src/index.ts at
 // 2f4637f08be83d4d47ddb6d79eb384d61fccecfb (@qbit-oss/protocol 0.1.0), each
-// under the line range it was copied from, so test/types/qbit-js-guide.mts can
+// under the line range it came from, so test/types/qbit-js-guide.mts can
 // type-check docs/qbit-js.md without a qbit-js dependency
-// (test/types/tsconfig.node16.json maps @qbit-oss/protocol here). Types are
-// verbatim; functions keep only their signatures, with `export declare` and a
-// default parameter made optional. When the guide moves to a newer
-// @qbit-oss/protocol, copy these again from that version.
+// (test/types/tsconfig.node16.json maps @qbit-oss/protocol here). The JSDoc
+// above each declaration is removed, and functions and classes keep only their
+// signatures (`export declare`, a default parameter made optional, no
+// `override`); types and members are otherwise as written there. When the
+// guide moves to a newer @qbit-oss/protocol, copy these again from that
+// version.
 
 // index.ts:89
 export declare const P2MR_LEAF_VERSION_V1 = 0xc0
@@ -46,6 +48,35 @@ export interface QbitNetworkParams {
     publicPrefix: string
     privatePrefix: string
   }
+}
+
+// index.ts:218-235
+export type QbitProtocolErrorCode =
+  | 'UNKNOWN_NETWORK'
+  | 'INVALID_BECH32'
+  | 'WRONG_HRP'
+  | 'WRONG_ENCODING'
+  | 'WRONG_WITNESS_VERSION'
+  | 'WRONG_PROGRAM_LENGTH'
+  | 'INVALID_BYTES'
+  | 'INVALID_SCRIPT'
+  | 'INVALID_URI'
+  | 'WRONG_URI_SCHEME'
+  | 'INVALID_DESCRIPTOR'
+  | 'INVALID_PSBT'
+  | 'INVALID_SIGHASH'
+  | 'INVALID_AMOUNT'
+  | 'INVALID_INTEGER'
+  | 'SIGNING_FAILED'
+  | 'INVALID_SIGNER'
+
+// index.ts:245-268
+export declare class QbitProtocolError extends Error {
+  readonly code: QbitProtocolErrorCode
+
+  static is(value: unknown): value is QbitProtocolError
+
+  constructor(code: QbitProtocolErrorCode, message: string)
 }
 
 // index.ts:313-329
@@ -223,6 +254,30 @@ export interface SignP2mrPsbtResult {
   signed: P2mrSigningPlanRef[]
 }
 
+// index.ts:2191
+export type P2mrPsbtSigningPhase = 'sign' | 'onSigned'
+
+// index.ts:2212-2247
+export declare class P2mrPsbtSigningError extends QbitProtocolError {
+  readonly psbt: Psbt
+  readonly signed: P2mrSigningPlanRef[]
+  readonly failed: P2mrSigningPlanRef
+  readonly phase: P2mrPsbtSigningPhase
+  readonly cause: unknown
+
+  static is(value: unknown): value is P2mrPsbtSigningError
+
+  constructor(params: {
+    psbt: Psbt
+    signed: P2mrSigningPlanRef[]
+    failed: P2mrSigningPlanRef
+    phase: P2mrPsbtSigningPhase
+    cause: unknown
+  })
+}
+
+// index.ts:522
+export declare function bytesToHex(bytes: Uint8Array): string
 
 // index.ts:571
 export declare function qbitWalletMessageHash(message: string): Uint8Array
@@ -273,3 +328,9 @@ export declare function signP2mrPsbt(
     onSigned?: P2mrPsbtOnSignedFn
   } & P2mrSigningOptions
 ): SignP2mrPsbtResult
+
+// index.ts:2538-2541
+export declare function p2mrAddressFromPubkey(
+  pk32: Uint8Array,
+  network: QbitNetworkName | QbitNetworkParams
+): string

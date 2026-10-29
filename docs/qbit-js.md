@@ -11,22 +11,29 @@ below is pinned to that commit.
 ## Install
 
 ```sh
-npm install @qbit-oss/pqc @qbit-oss/protocol
+npm install @qbit-oss/pqc @qbit-oss/protocol@~0.1.0
 ```
+
+`~0.1.0` keeps `@qbit-oss/protocol` on the 0.1 line this page was checked
+against: below 1.0, a minor release such as 0.2.0 may change the callbacks and
+helpers used here.
 
 ## Keys and addresses
 
 Derive the key for a wallet position as the
-[derivation contract](derivation.md) describes, then build the single-key leaf
-qbit-js signs for:
+[derivation contract](derivation.md) describes, then the address of its
+single-key `mr(pk(...))` output and the hash of that output's leaf, which
+signing keys name:
 
 <!-- snippet: test/types/qbit-js-guide.mts -->
 ```ts
-import { init } from '@qbit-oss/pqc'
+import { PqcError, init } from '@qbit-oss/pqc'
 import {
   P2MR_LEAF_VERSION_V1,
+  P2mrPsbtSigningError,
+  bytesToHex,
   createP2mrMessageProof,
-  p2mrAddressFromRoot,
+  p2mrAddressFromPubkey,
   p2mrLeafHash,
   qbitDataSigPqcHash,
   qbitWalletMessageHash,
@@ -44,14 +51,14 @@ declare const index: number // its index in the descriptor range
 
 const pqc = await init()
 const { pk32, sk64 } = pqc.deriveP2mrDescriptorKey(leafPrivateKey, index)
-// mr(pk(...)) has a single leaf, so its leaf hash is the address's merkle root
+const address = p2mrAddressFromPubkey(pk32, 'mainnet')
+// The hash of the single leaf of mr(pk(...)), which the signing keys name
 const leafHash = p2mrLeafHash(P2MR_LEAF_VERSION_V1, singleKeyLeafScript(pk32))
-const address = p2mrAddressFromRoot(leafHash, 'mainnet')
 ```
 
 `pk32` is the public key qbit-js takes wherever it asks for a P2MR `pubkey`;
-qbit-js never needs `sk64`. The values that cross between the
-two packages are all `Uint8Array`s:
+qbit-js never needs `sk64`. The values that cross between the two packages are
+all `Uint8Array`s:
 
 | Value | qbit-js | `@qbit-oss/pqc` | Bytes |
 | --- | --- | --- | --- |
@@ -92,11 +99,13 @@ const valid = verifyP2mrMessageProof(message, proof, pqc.verify, { expectedAddre
 is `(pubkey, digest, signature) => boolean`, the first three parameters of
 `verify(pk, msg, sig, options?)` in the same order. The client's methods are
 closures, so `pqc.verify` can be passed without binding it.
-`verifyP2mrMessageProof` returns `false` for anything `verifyPqc` throws, so
-the named `verify` export, which throws a `PqcError` with
-`kind: 'NOT_INITIALIZED'` until an `init()` call has succeeded, would make
-every proof read as invalid. Pass the client's method, or `await ready()`
-before passing the named export.
+`verifyP2mrMessageProof` returns `false` for anything `verifyPqc` throws. The
+named `verify` export looks up the client when it is called and throws a
+`PqcError` with `kind: 'NOT_INITIALIZED'` until an `init()` call has
+succeeded, so called too early it makes every proof read as invalid. Prefer
+the client from `await init()`, as above. `await ready()` before verifying
+works only if some code calls `init()`: `ready()` does not start a load, and
+without one it waits forever.
 
 ## PSBT signing
 
@@ -108,7 +117,8 @@ and asks a `sign` callback for its signature:
 ```ts
 declare const psbt: Psbt // from parsePsbt or createP2mrPsbt
 declare function secretKeyFor(pubkey: Uint8Array): Uint8Array | undefined // the wallet's keyring
-declare function reserveSignatures(pubkey: Uint8Array, count: number): Promise<void> // persists a counter
+// Persists the counts in one transaction, refusing any that would take a key past 2^30
+declare function reserveSignatures(uses: Map<string, number>): Promise<void>
 
 const keys: P2mrSigningKey[] = [{ inputIndex: 0, pubkey: pk32, leafHash }]
 const sign: P2mrPsbtSignFn = (sighash, context) => {
@@ -117,7 +127,12 @@ const sign: P2mrPsbtSignFn = (sighash, context) => {
 }
 
 validateP2mrSigningPlans({ psbt, keys })
-await reserveSignatures(pk32, keys.length)
+const uses = new Map<string, number>() // signing plans per public key, by hex
+for (const { pubkey } of keys) {
+  const hex = bytesToHex(pubkey)
+  uses.set(hex, (uses.get(hex) ?? 0) + 1)
+}
+await reserveSignatures(uses)
 const result = signP2mrPsbt({ psbt, keys, sign })
 ```
 
@@ -135,17 +150,6 @@ const result = signP2mrPsbt({ psbt, keys, sign })
   `allowNonDefaultSighash: true`; the protocol README explains when that is
   safe.
 
-## Where to sign in a Chrome extension
-
-A signature takes about 0.6 s and blocks the thread it runs on, so an MV3
-extension signs in a dedicated worker, as
-[Service workers](loading.md#service-workers) describes. Relaying a request to
-that worker is asynchronous, and `sign` cannot wait for a reply. Run the whole
-`signP2mrPsbt` call, `sign` and `onSigned` included, inside the worker that
-holds the initialized client, and send it the PSBT and keys in one request
-rather than relaying each signature. Sign message proofs there too. `verify`
-takes a few milliseconds and can run wherever a client is initialized.
-
 ## Signature counters
 
 A key is designed for at most 2^30 signatures, and this package counts none
@@ -153,32 +157,78 @@ A key is designed for at most 2^30 signatures, and this package counts none
 proof uses one. `signP2mrPsbt` reports each stored signature to an optional
 [`onSigned`](https://github.com/Qbit-Org/qbit-js/blob/2f4637f08be83d4d47ddb6d79eb384d61fccecfb/packages/protocol/src/index.ts#L2161-L2163)
 callback, but `onSigned` must be synchronous too, so it cannot wait for
-`chrome.storage` or IndexedDB to persist a counter. Reserve the uses before
-signing instead, as the snippet above does:
+storage to persist a counter. Reserve the uses before signing instead, as the
+snippet above does:
 [`validateP2mrSigningPlans`](https://github.com/Qbit-Org/qbit-js/blob/2f4637f08be83d4d47ddb6d79eb384d61fccecfb/packages/protocol/src/index.ts#L2295)
 runs the same checks on `keys` as `signP2mrPsbt`, without calling a signer or
 changing the PSBT, so a PSBT that would be refused costs no reservation. Then
-persist one use per entry of `keys` for each public key, refuse to sign once a
-key would pass 2^30, and only then call `signP2mrPsbt`. A plan that failed in
-phase `'sign'` counts as used.
+count the plans for each public key, persist those counts in one step that
+refuses any key they would take past 2^30, and only then call `signP2mrPsbt`.
+A plan that failed in phase `'sign'` counts as used.
+
+## Where to sign in a Chrome extension
+
+A signature takes about 0.6 s and blocks the thread it runs on, so an MV3
+extension signs in a dedicated worker that an offscreen document starts, as
+[Service workers](loading.md#service-workers) describes. Relaying a request to
+that worker is asynchronous, and `sign` cannot wait for a reply. Run the whole
+`signP2mrPsbt` call, `sign` and `onSigned` included, in the worker that holds
+the initialized client, and send it the PSBT and keys in one request rather
+than relaying each signature. `chrome.runtime.sendMessage` carries only
+JSON-serializable messages, so send the PSBT's `serializePsbt` bytes and each
+key's `pubkey` and `leafHash` as hex (`bytesToHex`), and turn them back into
+bytes in the worker (`hexToBytes`, then `parsePsbt` for the PSBT);
+`postMessage` from the offscreen document keeps `Uint8Array`s. Sign
+message proofs there too. `verify` takes a few milliseconds and can run
+wherever a client is initialized.
+
+That worker cannot use `chrome.storage`: an offscreen document gets only
+`chrome.runtime`, and a dedicated worker no extension API. Keep the counters in
+IndexedDB, which the worker can open and the service worker and extension pages
+share, so one place validates, reserves and signs. Reserving in the service
+worker with `chrome.storage` before relaying also works, but splits those
+steps: the service worker must then run `validateP2mrSigningPlans` and count
+the plans itself, and the worker must sign only the keys it was sent.
+
+## Failures and retries
+
+When `sign` throws, returns a promise or returns a malformed signature, or
+`onSigned` throws or returns a promise, `signP2mrPsbt` throws a
+[`P2mrPsbtSigningError`](https://github.com/Qbit-Org/qbit-js/blob/2f4637f08be83d4d47ddb6d79eb384d61fccecfb/packages/protocol/src/index.ts#L2212)
+whose `psbt` holds every signature stored so far and whose `signed` lists
+them. Retry with that `psbt` and only the keys not in `signed`; a key whose
+signature is already present is refused before any signer call. Re-signing
+the same sighash with an intact key returns the same signature, so a retried
+plan reveals nothing new; [Usage bound](signing.md#usage-bound) says when that
+holds.
+
+`signP2mrPsbt` wraps what `sign` throws, so a `PqcError` from `pqc.sign` is
+the `cause` of the `P2mrPsbtSigningError` (in phase `'sign'`), not the error
+you catch. One with `kind: 'SIGNING_LIMIT'` recurs for the same sighash, so
+change the transaction before signing again:
+
+<!-- snippet: test/types/qbit-js-guide.mts -->
+```ts
+// signP2mrPsbt wraps what sign throws, so a PqcError is the cause of its error
+const needsNewTransaction = (error: unknown) =>
+  P2mrPsbtSigningError.is(error) && error.cause instanceof PqcError && error.cause.kind === 'SIGNING_LIMIT'
+```
 
 ## Checklist
 
-- Await `init()` before passing `verify` to qbit-js, and pass the client's
-  method; a throwing `verifyPqc` reads as an invalid proof.
+- Make sure an `init()` call has succeeded before `verifyP2mrMessageProof`
+  calls `verifyPqc`: the named `verify` resolves the client at call time, and
+  its `NOT_INITIALIZED` error reads as an invalid proof. Passing `pqc.verify`
+  from `await init()` rules that out.
 - Sign `qbitDataSigPqcHash(qbitWalletMessageHash(message))` or the sighash
   `signP2mrPsbt` passes, never the message text or transaction bytes.
 - Keep `sign` and `onSigned` synchronous, and run `signP2mrPsbt` in the worker
   that holds the client.
-- Reserve counter uses before `signP2mrPsbt`, after
-  `validateP2mrSigningPlans` passes, and stop at 2^30 per key.
-- After a
-  [`P2mrPsbtSigningError`](https://github.com/Qbit-Org/qbit-js/blob/2f4637f08be83d4d47ddb6d79eb384d61fccecfb/packages/protocol/src/index.ts#L2212),
-  retry with its `psbt` and only the keys not in its `signed` list. Re-signing
-  the same sighash with an intact key returns the same signature, so the retry
-  reveals nothing new; [Usage bound](signing.md#usage-bound) says when that
-  holds. A `PqcError` with `kind: 'SIGNING_LIMIT'` recurs for the same
-  sighash, so change the transaction before signing again.
+- Reserve each public key's counter uses before `signP2mrPsbt`, after
+  `validateP2mrSigningPlans` passes, in storage the reserving context can use,
+  and stop at 2^30 per key.
+- After a `P2mrPsbtSigningError`, retry with its `psbt` and only the keys not
+  in `signed`, and look for a `SIGNING_LIMIT` `PqcError` in its `cause`.
 
 ## qbit-js references
 
