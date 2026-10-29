@@ -9,5 +9,5 @@
     "skipLibCheck": false,
     "types": []
   },
-  "files": ["mv3-wasm-import.mts"]
+  "include": ["*.mts"]
 }

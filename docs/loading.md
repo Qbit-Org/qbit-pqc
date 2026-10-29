@@ -66,6 +66,7 @@ where you deploy it. To serve the loader and `pqc.wasm` with your app, copy
 both from the same package version and pass the loader's URL as `moduleUrl`;
 `pqc.wasm` is then loaded from the loader's directory:
 
+<!-- snippet: test/types/docs-loading-module-url.mts -->
 ```ts
 const pqc = await init({ moduleUrl: new URL('/pqc/pqc.mjs', location.href) })
 ```
@@ -82,6 +83,7 @@ Service workers, Chrome MV3 extension service workers included, do not allow
 `import()`, which `init()` uses for the loader, so they should statically
 import the Emscripten factory and pass it to `init()`:
 
+<!-- snippet: test/types/mv3-wasm-import.mts -->
 ```ts
 import { init } from '@qbit-oss/pqc'
 import createPqcModule from '@qbit-oss/pqc/wasm/pqc.mjs'

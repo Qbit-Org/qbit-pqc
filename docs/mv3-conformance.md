@@ -39,6 +39,7 @@ Service workers do not allow `import()`, which `init()` uses for the loader,
 so MV3 service workers should statically import the Emscripten factory and
 pass it to `init()`:
 
+<!-- snippet: test/types/mv3-wasm-import.mts -->
 ```js
 import { init } from '@qbit-oss/pqc'
 import createPqcModule from '@qbit-oss/pqc/wasm/pqc.mjs'

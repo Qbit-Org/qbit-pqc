@@ -26,6 +26,7 @@ through `require(esm)`.
 In a project with the package installed, save this as `quickstart.mjs` and run
 `node quickstart.mjs`:
 
+<!-- snippet: examples/quick-start.mjs -->
 ```js
 import { constants, init, keygen, sign, verify } from '@qbit-oss/pqc'
 
@@ -72,6 +73,7 @@ fixture vectors in `fixtures/qbit-core-derivation.json`.
 
 ## API
 
+<!-- snippet: test/types/readme-api.mts -->
 ```ts
 import { init } from '@qbit-oss/pqc'
 
@@ -124,6 +126,7 @@ Service workers, Chrome MV3 extension service workers included, do not allow
 `import()`, which `init()` uses for the loader, so they should statically
 import the Emscripten factory and pass it to `init()`:
 
+<!-- snippet: test/types/mv3-wasm-import.mts -->
 ```ts
 import { init } from '@qbit-oss/pqc'
 import createPqcModule from '@qbit-oss/pqc/wasm/pqc.mjs'
