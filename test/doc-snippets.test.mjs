@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, sep } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
@@ -35,10 +35,10 @@ const UNMARKED_DOC_FENCES = []
 
 function snippetKind(lang) {
   if (JS_LANGUAGES.has(lang)) {
-    return { name: 'JavaScript', extension: /\.m?js$/, extensions: '.mjs or .js' }
+    return { name: 'JavaScript', extension: /\.mjs$/, extensions: 'an examples/*.mjs' }
   }
   if (TS_LANGUAGES.has(lang)) {
-    return { name: 'TypeScript', extension: /\.m?ts$/, extensions: '.mts or .ts' }
+    return { name: 'TypeScript', extension: /\.mts$/, extensions: 'a test/types/*.mts' }
   }
   return undefined
 }
@@ -125,7 +125,7 @@ function checkDoc(file, text, { readTarget, isUnmarkedAllowed }) {
       continue
     }
     if (!kind.extension.test(fence.marker)) {
-      problems.push(`${where} names ${fence.marker}, but a ${kind.name} fence must name a ${kind.extensions} file`)
+      problems.push(`${where} names ${fence.marker}, but a ${kind.name} fence must name ${kind.extensions} file`)
       continue
     }
     const target = readTarget(fence.marker)
@@ -185,9 +185,10 @@ function checkDocs(docs, { readTarget, unmarkedDocFences }) {
 
 // README.md and every Markdown file under docs/, as repository paths.
 function listDocs(root) {
-  const docs = readdirSync(join(root, 'docs'), { recursive: true })
-    .filter(name => name.endsWith('.md') && statSync(join(root, 'docs', name)).isFile())
-    .map(name => `docs/${name.split(sep).join('/')}`)
+  // Dirents need no stat, so a dangling symlink is skipped instead of throwing.
+  const docs = readdirSync(join(root, 'docs'), { recursive: true, withFileTypes: true })
+    .filter(entry => entry.isFile() && entry.name.endsWith('.md'))
+    .map(entry => `docs/${relative(join(root, 'docs'), join(entry.parentPath, entry.name)).split(sep).join('/')}`)
     .sort()
   return ['README.md', ...docs]
 }
@@ -313,8 +314,8 @@ describe('snippet check', () => {
     ].join('\n')
 
     expect(check([{ file: 'README.md', text }])).toEqual([
-      'README.md:2: js fence names test/types/demo.mts, but a JavaScript fence must name a .mjs or .js file',
-      'README.md:6: typescript fence names examples/demo.mjs, but a TypeScript fence must name a .mts or .ts file',
+      'README.md:2: js fence names test/types/demo.mts, but a JavaScript fence must name an examples/*.mjs file',
+      'README.md:6: typescript fence names examples/demo.mjs, but a TypeScript fence must name a test/types/*.mts file',
     ])
   })
 
