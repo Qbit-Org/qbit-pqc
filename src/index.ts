@@ -304,11 +304,15 @@ export interface PqcDerivedKey {
  * What {@link deriveP2mrDescriptorKey} and {@link derivePQCKey} return: a
  * {@link PqcDerivedKey} that also reads its keys under the names
  * {@link PqcKeyPair} uses. `publicKey` and `secretKey` are non-enumerable
- * getters, with no setter, that return the object's current `pk32` and `sk64`:
- * the same arrays, not copies, so zeroing either name zeroes both, and they
- * follow a reassigned `pk32` or `sk64`. `Object.keys`, spread,
- * `structuredClone` and `JSON.stringify` see only `pk32` and `sk64`, as in
- * 0.1.0, so the secret key is never copied or serialized twice.
+ * getters, with no setter, that return whatever the object's `pk32` and `sk64`
+ * hold when read: the same arrays, not copies, so zeroing either name zeroes
+ * both. After `pk32` or `sk64` is reassigned, its alias returns the new value,
+ * and after it is deleted, undefined. `Object.keys`, `JSON.stringify` and deep
+ * equality see only
+ * `pk32` and `sk64`, as in 0.1.0, so the secret key is never serialized twice.
+ * A spread, `Object.assign` or `structuredClone` (or `postMessage`) copy has
+ * only `pk32` and `sk64`, although TypeScript types it with the aliases, so
+ * read them from the original result, or copy `pk32` and `sk64`.
  */
 export interface PqcDerivedKeyPair extends PqcDerivedKey {
   /** The object's current `pk32`, under {@link PqcKeyPair}'s name. */

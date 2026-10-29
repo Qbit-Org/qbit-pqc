@@ -163,6 +163,19 @@ assert.deepEqual(Array.from(e2.publicKey), Array.from(publicKey), 'MV3-factory i
 // for every supported Node version, and the qbit Core signatures it records
 // verify with the installed package
 const signatureVectors = require('@qbit-oss/pqc/fixtures/qbit-core-signature-vectors.json')
+// The import-attribute form the docs also show loads the same fixture, with no
+// ExperimentalWarning on any supported Node version (CI's node-matrix runs this
+// on the engines floors). Node emits a warning on a later tick, hence the wait.
+const warnings = []
+const onWarning = warning => warnings.push(`${warning.name}: ${warning.message}`)
+process.on('warning', onWarning)
+const { default: importedVectors } = await import('@qbit-oss/pqc/fixtures/qbit-core-signature-vectors.json', {
+  with: { type: 'json' },
+})
+await new Promise(resolve => setImmediate(resolve))
+process.off('warning', onWarning)
+assert.deepEqual(importedVectors, signatureVectors, 'import with { type: json } loads the fixture require() loads')
+assert.deepEqual(warnings, [], 'importing a JSON fixture emits no warning')
 assert.ok(signatureVectors.accept.length > 0, 'signature fixture has accept vectors')
 for (const vector of signatureVectors.accept) {
   const hex = value => Buffer.from(value, 'hex')

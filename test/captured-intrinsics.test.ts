@@ -577,6 +577,10 @@ describe('intrinsics used after user code can run are captured at module load', 
       await freshVictim()
       const leaf = syntheticEntropy(0x71).slice(0, 32)
       let patchCalls = 0
+      const inheritedFields = { get: () => undefined, set: () => undefined, value: new Uint8Array(1), writable: true }
+      for (const key of Object.keys(inheritedFields)) {
+        expect(Object.getOwnPropertyDescriptor(Object.prototype, key)).toBeUndefined()
+      }
       const outcome = underTrap(
         combine(
           () =>
@@ -584,15 +588,27 @@ describe('intrinsics used after user code can run are captured at module load', 
               patchCalls += 1
               throw new Error('patched Object.defineProperties')
             }),
-          // An inherited `set` would give an alias descriptor with a prototype
-          // a setter that sees every assignment.
-          () =>
-            patchAccessor(Object.prototype, 'set', {
-              get: () => {
-                patchCalls += 1
-                return () => undefined
-              },
-            })
+          // Descriptor fields inherited by an alias descriptor with a prototype:
+          // `set` would see every assignment, `get` would replace the getter,
+          // and `value` or `writable` would make defineProperties throw.
+          () => {
+            for (const [key, inherited] of Object.entries(inheritedFields)) {
+              // Prototype-less, so each patch leaves the next definition alone.
+              Object.defineProperty(Object.prototype, key, {
+                __proto__: null,
+                configurable: true,
+                get: () => {
+                  patchCalls += 1
+                  return inherited
+                },
+              } as PropertyDescriptor)
+            }
+            return () => {
+              for (const key of Object.keys(inheritedFields)) {
+                delete (Object.prototype as Record<string, unknown>)[key]
+              }
+            }
+          }
         ),
         trap => victim.deriveP2mrDescriptorKey(trap(leaf), 7)
       )

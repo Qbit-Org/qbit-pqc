@@ -76,8 +76,10 @@ uses, are getters over the same arrays, so in
 zeroing `secretKey` zeroes `sk64` too, and the result still enumerates and
 serializes as `{ pk32, sk64 }`. The fixtures ship in the package as public,
 semver-covered API and load by name on every supported Node version with
-`createRequire(import.meta.url)('@qbit-oss/pqc/fixtures/qbit-core-derivation.json')`;
-bundlers and newer Node versions also accept `import ... with { type: 'json' }`.
+`createRequire(import.meta.url)('@qbit-oss/pqc/fixtures/qbit-core-derivation.json')`.
+`import ... with { type: 'json' }` also works in bundlers and on every
+supported Node version, but TypeScript accepts it only with `module` set to
+`node18`, `nodenext`, `esnext` or `preserve`.
 
 ## API
 
