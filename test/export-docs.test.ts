@@ -94,7 +94,7 @@ describe('src/index.ts doc comments', () => {
     expect(Object.keys(pqc).filter(name => !names.includes(name))).toEqual([])
   })
 
-  it('document every export and every member of an exported interface or class', () => {
+  it('documents every export and every member of an exported interface or class', () => {
     const undocumented = items.filter(item => !item.documented).map(item => item.name)
     expect(undocumented, 'exports and members without a JSDoc comment').toEqual([])
   })

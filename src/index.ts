@@ -297,12 +297,17 @@ export interface PqcDerivedKey {
 /**
  * The native grind statistics of one signing call, from
  * {@link PqcClient.signWithStats} or the {@link PqcError} it threw. Every
- * number is a uint32.
+ * number is a uint32. When signing fails before it starts, as for `BAD_KEY` or
+ * `OUT_OF_MEMORY`, every field is 0, the caps included; when it fails after it
+ * started, as for `SIGNING_LIMIT`, the fields hold the attempts made until then.
  */
 export interface PqcSignStats {
   /** The FORS+C salt-grind attempts made for this signature. */
   forscAttempts: number
-  /** The FORS+C attempt cap: signing that reaches it without success fails with `SIGNING_LIMIT`. */
+  /**
+   * The FORS+C attempt cap: signing that reaches it without success fails with
+   * `SIGNING_LIMIT`. 0 when signing failed before it started.
+   */
   forscMaxAttempts: number
   /**
    * The WOTS+C counter-grind attempts for each layer, in the order the layers
@@ -312,7 +317,10 @@ export interface PqcSignStats {
   wotscAttempts: number[]
   /** The number of WOTS+C layers ground: `constants.WOTSC_LAYERS` (5) for a signature that completed. */
   wotscLayerCount: number
-  /** The WOTS+C attempt cap for each layer: a layer that reaches it fails signing with `SIGNING_LIMIT`. */
+  /**
+   * The WOTS+C attempt cap for each layer: a layer that reaches it fails
+   * signing with `SIGNING_LIMIT`. 0 when signing failed before it started.
+   */
   wotscMaxAttempts: number
   /** The most attempts any one WOTS+C layer took. */
   wotscMaxObservedAttempts: number
@@ -373,7 +381,12 @@ export class PqcError extends Error {
   readonly nativeName: PqcNativeErrorName | undefined
   /** What failed; see {@link PqcErrorKind}. It follows from `code`, except for `NOT_INITIALIZED` and `LOAD_FAILED`. */
   readonly kind: PqcErrorKind
-  /** The signing stats on an error from `signWithStats`, as for `SIGNING_LIMIT`; undefined otherwise. */
+  /**
+   * The signing stats on an error from `signWithStats`, and undefined on any
+   * other error. Every field is 0, the caps included, when signing failed
+   * before it started, as for `BAD_KEY` or `OUT_OF_MEMORY`; after it started,
+   * as for `SIGNING_LIMIT`, they hold the attempts made until then.
+   */
   readonly stats: PqcSignStats | undefined
 
   constructor(operation: string, code: number, details: PqcErrorDetails = {}) {
@@ -496,7 +509,9 @@ export interface PqcWasmModule {
   _qbit_pqc_sign(signatureOut: number, secretKey: number, message: number, messageLength: number): number
   /**
    * `_qbit_pqc_sign`, also writing `constants.SIGN_STATS_WORDS` uint32 words of
-   * signing stats at `statsOut`, when signing fails too.
+   * signing stats at `statsOut`, when signing fails too. A NULL pointer
+   * argument, or a NULL `message` with a nonzero `messageLength`, returns
+   * `BITCOIN_PQC_ERROR_BAD_ARG` and leaves those words unwritten.
    */
   _qbit_pqc_sign_with_stats(
     signatureOut: number,
@@ -531,8 +546,9 @@ export interface PqcWasmModuleOptions {
    * directory (a URL, or a file path in Node), it returns the URL or path to
    * load. As an {@link init} option it makes `init()` load `pqc.wasm` from there
    * instead of compiling the embedded copy, unless `wasmBinary` is set, and
-   * returning `undefined` or `null` keeps the default: beside `moduleUrl` when
-   * it is set, the package's own `pqc.wasm` file otherwise.
+   * returning `undefined` or `null` keeps the default: beside the `moduleUrl`
+   * loader when `moduleUrl` is in effect, and the package's own `pqc.wasm` file
+   * otherwise, as when `createModule` is set and `moduleUrl` is ignored.
    */
   locateFile?: (path: string, prefix: string) => string | undefined | null
   /**
@@ -553,7 +569,9 @@ export type PqcWasmModuleFactory = (options?: PqcWasmModuleOptions) => Promise<P
 /**
  * Options for {@link init}. Without any, `init()` imports the package's loader
  * and compiles the copy of `pqc.wasm` embedded in `lib/index.mjs`, fetching no
- * file. Calls with the same options share one load.
+ * file. A call shares the load of the most recent call when its options match
+ * that call's (see {@link init} for when they match), and a failed load is not
+ * kept for later calls.
  */
 export interface InitOptions extends PqcWasmModuleOptions {
   /**
@@ -591,8 +609,10 @@ export interface PqcClient {
    * entropy always gives the same key pair, so draw it from a cryptographically
    * secure generator such as `crypto.getRandomValues` and keep it as secret as
    * the key. A native failure throws a {@link PqcError}, such as
-   * `OUT_OF_MEMORY` when the seed-derivation buffer, which grows with the
-   * entropy, cannot be allocated.
+   * `OUT_OF_MEMORY` when an allocation inside the native library fails, as for
+   * the seed-derivation buffer, which grows with the entropy. When the wrapper
+   * itself cannot allocate WASM memory, for the entropy or the keys, it throws
+   * a plain Error.
    */
   keygen(entropy: Uint8Array): PqcKeyPair
   /**
@@ -989,18 +1009,25 @@ function notInitializedError(operation: string): PqcError {
 }
 
 /**
- * {@link PqcClient.keygen} on the client from the last `init()`: `entropy` must
- * be at least `constants.MIN_ENTROPY` (128) bytes, and all of it is hashed into
- * the key seed.
+ * {@link PqcClient.keygen} on the client of the newest `init()` call that has
+ * succeeded; a later call that fails or is still pending does not replace it.
+ * Until an `init()` call has succeeded, it throws a {@link PqcError} with kind
+ * `'NOT_INITIALIZED'`. `entropy` must be at least `constants.MIN_ENTROPY`
+ * (128) bytes, and all of it is hashed into the key seed. An allocation
+ * failure inside the native library throws a PqcError with kind
+ * `'OUT_OF_MEMORY'`; one by the wrapper itself, a plain Error.
  */
 export function keygen(entropy: Uint8Array): PqcKeyPair {
   return getActiveClient('keygen').keygen(entropy)
 }
 
 /**
- * {@link PqcClient.derivePQCKey} on the client from the last `init()`.
- * `hkdfAccount`, `hkdfChange` and `hkdfIndex` are HKDF fields, not BIP32 path
- * fields; derive wallet keys with {@link deriveP2mrDescriptorKey}.
+ * {@link PqcClient.derivePQCKey} on the client of the newest `init()` call
+ * that has succeeded; a later call that fails or is still pending does not
+ * replace it. Until an `init()` call has succeeded, it throws a
+ * {@link PqcError} with kind `'NOT_INITIALIZED'`. `hkdfAccount`, `hkdfChange`
+ * and `hkdfIndex` are HKDF fields, not BIP32 path fields; derive wallet keys
+ * with {@link deriveP2mrDescriptorKey}.
  */
 export function derivePQCKey(
   masterSeed: Uint8Array,
@@ -1012,42 +1039,55 @@ export function derivePQCKey(
 }
 
 /**
- * {@link PqcClient.deriveP2mrDescriptorKey} on the client from the last
- * `init()`: the P2MR key qbit Core's descriptor wallet derives from a 32-byte
- * BIP32 leaf private key at a non-hardened range position.
+ * {@link PqcClient.deriveP2mrDescriptorKey} on the client of the newest
+ * `init()` call that has succeeded; a later call that fails or is still
+ * pending does not replace it. Until an `init()` call has succeeded, it throws
+ * a {@link PqcError} with kind `'NOT_INITIALIZED'`. It returns the P2MR key
+ * qbit Core's descriptor wallet derives from a 32-byte BIP32 leaf private key
+ * at a non-hardened range position.
  */
 export function deriveP2mrDescriptorKey(leafPrivateKey: Uint8Array, rangeIndex: number): PqcDerivedKey {
   return getActiveClient('deriveP2mrDescriptorKey').deriveP2mrDescriptorKey(leafPrivateKey, rangeIndex)
 }
 
 /**
- * {@link PqcClient.sign} on the client from the last `init()`. Sign a 32-byte
- * digest; a `msg` longer than 64 KiB needs `{ allowLargeMessage: true }`.
+ * {@link PqcClient.sign} on the client of the newest `init()` call that has
+ * succeeded; a later call that fails or is still pending does not replace it.
+ * Until an `init()` call has succeeded, it throws a {@link PqcError} with kind
+ * `'NOT_INITIALIZED'`. Sign a 32-byte digest; a `msg` longer than 64 KiB
+ * needs `{ allowLargeMessage: true }`.
  */
 export function sign(sk: Uint8Array, msg: Uint8Array, options?: PqcMessageOptions): Uint8Array {
   return getActiveClient('sign').sign(sk, msg, options)
 }
 
 /**
- * {@link PqcClient.signWithStats} on the client from the last `init()`, with
- * the same message size limit as {@link sign}.
+ * {@link PqcClient.signWithStats} on the client of the newest `init()` call
+ * that has succeeded; a later call that fails or is still pending does not
+ * replace it. Until an `init()` call has succeeded, it throws a
+ * {@link PqcError} with kind `'NOT_INITIALIZED'`. It has the same message size
+ * limit as {@link sign}.
  */
 export function signWithStats(sk: Uint8Array, msg: Uint8Array, options?: PqcMessageOptions): PqcSignWithStatsResult {
   return getActiveClient('signWithStats').signWithStats(sk, msg, options)
 }
 
 /**
- * {@link PqcClient.verify} on the client `init()` set up, with the same
- * results and errors. Also throws a PqcError with kind `'NOT_INITIALIZED'`
- * when no `init()` call has succeeded yet.
+ * {@link PqcClient.verify} on the client of the newest `init()` call that has
+ * succeeded; a later call that fails or is still pending does not replace it.
+ * Until an `init()` call has succeeded, it throws a {@link PqcError} with kind
+ * `'NOT_INITIALIZED'`; otherwise it has the same results and errors.
  */
 export function verify(pk: Uint8Array, msg: Uint8Array, sig: Uint8Array, options?: PqcMessageOptions): boolean {
   return getActiveClient('verify').verify(pk, msg, sig, options)
 }
 
 /**
- * {@link PqcClient.secretKeyValidate} on the client from the last `init()`:
- * whether the stored root of `sk` matches its seeds. `SK.prf` is not checked.
+ * {@link PqcClient.secretKeyValidate} on the client of the newest `init()`
+ * call that has succeeded; a later call that fails or is still pending does
+ * not replace it. Until an `init()` call has succeeded, it throws a
+ * {@link PqcError} with kind `'NOT_INITIALIZED'`. It returns whether the
+ * stored root of `sk` matches its seeds; `SK.prf` is not checked.
  */
 export function secretKeyValidate(sk: Uint8Array): boolean {
   return getActiveClient('secretKeyValidate').secretKeyValidate(sk)
