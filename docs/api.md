@@ -51,8 +51,13 @@ zeroing of its copies in WASM memory. The exported `constants` and
 any of them throws a `TypeError` in strict mode, which every ES module uses,
 and does nothing otherwise.
 Native failures from `bitcoin_pqc_*` are exposed as `PqcError`
-values with typed `kind`, `code`, and `nativeName` fields; `SIGNING_LIMIT`
-errors from `signWithStats` also carry the native signing stats.
+values with typed `kind`, `code`, and `nativeName` fields. Errors from
+`signWithStats` also carry the native signing stats as `stats` when signing
+had started: every `SIGNING_LIMIT` error does, and so does a `BAD_SIGNATURE`
+from a failed signature or self-check. When signing fails before it starts,
+as with `BAD_KEY`, `OUT_OF_MEMORY`, or a `BAD_SIGNATURE` from deriving the
+signing randomness, `stats` is `undefined`, as it is on errors from every
+other function.
 `sign` and `signWithStats` reject a secret key whose stored root does not
 match its seeds with `kind === 'BAD_KEY'`, the same verdict
 `secretKeyValidate` gives for those bytes; `BAD_SIGNATURE` from signing means

@@ -5,6 +5,20 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
 
 ## 0.1.1 (unreleased)
 
+### API
+
+- A `PqcError` from `signWithStats` carries `stats` only when signing had
+  started: every `SIGNING_LIMIT` error, and a `BAD_SIGNATURE` from a failed
+  signature or self-check. When signing fails before it starts, for example
+  with `BAD_KEY` for a secret key whose stored root does not match its seeds,
+  with `OUT_OF_MEMORY`, or with a `BAD_SIGNATURE` from deriving the signing
+  randomness, `stats` is now `undefined`. Before, it was always an object, all
+  zeros in those cases, which read like an attempt with caps of 0. The docs
+  only promised stats on `SIGNING_LIMIT` errors, which keep them, and
+  `PqcError.stats` was already typed `PqcSignStats | undefined`, so this is a
+  patch-level fix (see [RELEASING.md](RELEASING.md) "Versioning"). Code that
+  reads `error.stats.<field>` on any error should check for `undefined` first.
+
 ## 0.1.0 (2026-10-26)
 
 This was the first release, and nothing had been published before it. Changes

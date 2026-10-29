@@ -33,6 +33,7 @@ const objectHasOwn = Function.prototype.call.bind(Object.prototype.hasOwnPropert
 const OK = 0
 const ERROR_BAD_KEY = -2
 const ERROR_BAD_SIGNATURE = -3
+const ERROR_SIGNING_LIMIT = -5
 const PK_SIZE = 32
 const SK_SIZE = 64
 const SIG_SIZE = 3680
@@ -134,9 +135,9 @@ function uncurryDataViewMethod<A extends unknown[], R>(
  * code of a native failure as `code`, its name as `nativeName` and its
  * {@link PqcErrorKind} as `kind`.
  *
- * Exported for callers, and frozen, like `constants`. `verify` and
- * `secretKeyValidate` compare native return codes with module-private copies
- * of these values.
+ * Exported for callers, and frozen, like `constants`. `verify`,
+ * `secretKeyValidate` and `signWithStats` compare native return codes with
+ * module-private copies of these values.
  */
 export const errorCodes = Object.freeze({
   BITCOIN_PQC_OK: OK,
@@ -144,7 +145,7 @@ export const errorCodes = Object.freeze({
   BITCOIN_PQC_ERROR_BAD_KEY: ERROR_BAD_KEY,
   BITCOIN_PQC_ERROR_BAD_SIGNATURE: ERROR_BAD_SIGNATURE,
   BITCOIN_PQC_ERROR_NOT_IMPLEMENTED: -4,
-  BITCOIN_PQC_ERROR_SIGNING_LIMIT: -5,
+  BITCOIN_PQC_ERROR_SIGNING_LIMIT: ERROR_SIGNING_LIMIT,
   BITCOIN_PQC_ERROR_OUT_OF_MEMORY: -6,
 } as const)
 
@@ -297,19 +298,16 @@ export interface PqcDerivedKey {
 /**
  * The native grind statistics of one signing call, from
  * {@link PqcClient.signWithStats} or the {@link PqcError} it threw. Every
- * number is a uint32. When signing fails before it starts, as for `BAD_KEY` or
- * `OUT_OF_MEMORY`, every field is 0, the caps included; when it fails after it
- * started, as for `SIGNING_LIMIT`, the fields hold the attempts made until then.
- * `BAD_SIGNATURE` can happen either way: before signing starts when deriving
- * the signing randomness fails, after it when the signature or its self-check
- * fails.
+ * number is a uint32. A {@link PqcError} carries them only when signing had
+ * started (see {@link PqcError.stats}), and then the fields hold the attempts
+ * made until it failed.
  */
 export interface PqcSignStats {
   /** The FORS+C salt-grind attempts made for this signature. */
   forscAttempts: number
   /**
    * The FORS+C attempt cap: signing that reaches it without success fails with
-   * `SIGNING_LIMIT`. 0 when signing failed before it started.
+   * `SIGNING_LIMIT`.
    */
   forscMaxAttempts: number
   /**
@@ -385,10 +383,12 @@ export class PqcError extends Error {
   /** What failed; see {@link PqcErrorKind}. It follows from `code`, except for `NOT_INITIALIZED` and `LOAD_FAILED`. */
   readonly kind: PqcErrorKind
   /**
-   * The signing stats on a native failure of `signWithStats`, and undefined on
-   * any other error, `NOT_INITIALIZED` included. Every field is 0, the caps included, when signing failed
-   * before it started, as for `BAD_KEY` or `OUT_OF_MEMORY`; after it started,
-   * as for `SIGNING_LIMIT`, they hold the attempts made until then.
+   * The native signing stats on a failure of `signWithStats` once signing had
+   * started: every `SIGNING_LIMIT` error, and a `BAD_SIGNATURE` from a failed
+   * signature or self-check, with the attempts made until then. Undefined when
+   * signing failed before it started (`BAD_KEY`, `OUT_OF_MEMORY`, or a
+   * `BAD_SIGNATURE` deriving the signing randomness) and on every other error,
+   * `NOT_INITIALIZED` included.
    */
   readonly stats: PqcSignStats | undefined
 
@@ -659,7 +659,13 @@ export interface PqcClient {
    * `allowLargeMessage`; anything else throws a TypeError.
    */
   sign(sk: Uint8Array, msg: Uint8Array, options?: PqcMessageOptions): Uint8Array
-  /** {@link PqcClient.sign}, also returning the native signing stats. */
+  /**
+   * {@link PqcClient.sign}, also returning the native signing stats. A
+   * `PqcError` it throws carries them as `stats` when signing had started:
+   * always for `SIGNING_LIMIT`, and for a `BAD_SIGNATURE` from a failed
+   * signature or self-check. A failure before signing starts, such as
+   * `BAD_KEY` or `OUT_OF_MEMORY`, leaves `stats` undefined.
+   */
   signWithStats(sk: Uint8Array, msg: Uint8Array, options?: PqcMessageOptions): PqcSignWithStatsResult
   /**
    * Returns true when `sig` is a valid signature of `msg` under `pk`, and
@@ -1760,7 +1766,7 @@ function signWithStatsWithModule(
     const rc = module._qbit_pqc_sign_with_stats(signaturePtr, statsPtr, secretKeyPtr, messagePtr, msgIn.length)
     const stats = readStats(module, statsPtr)
     if (rc !== OK) {
-      throwNativeError('signWithStats', rc, { stats })
+      throwNativeError('signWithStats', rc, signingStarted(rc, stats) ? { stats } : {})
     }
 
     return {
@@ -1778,6 +1784,14 @@ function signWithStatsWithModule(
       { ptr: statsPtr, byteLength: SIGN_STATS_BYTES },
     ])
   }
+}
+
+// The native library sets the caps only once signing starts, so a failure
+// before that (BAD_KEY, OUT_OF_MEMORY, or BAD_SIGNATURE from deriving the
+// signing randomness) leaves them 0 and reports no attempt. SIGNING_LIMIT is
+// only reached after the start.
+function signingStarted(rc: number, stats: PqcSignStats): boolean {
+  return rc === ERROR_SIGNING_LIMIT || stats.forscMaxAttempts !== 0
 }
 
 function readStats(module: PqcWasmModule, statsPtr: number): PqcSignStats {
