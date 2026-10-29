@@ -75,7 +75,7 @@ The digest construction and the FORS+C condition belong to the signature
 scheme qbit Core verifies, so this cost cannot change without a consensus
 change. Instead, `sign` and `signWithStats` reject a message longer than
 64 KiB (`constants.MAX_MESSAGE_SIZE`) unless the caller passes
-`{ allowLargeMessage: true }`; the README's "Message size" section gives
+`{ allowLargeMessage: true }`; [Message size](signing.md#message-size) gives
 measured signing times.
 
 ## Descriptor Path

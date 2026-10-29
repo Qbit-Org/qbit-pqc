@@ -27,10 +27,9 @@ describes.
 
 ## Supported versions
 
-Nothing has been published yet, so the package is pre-release: report against
-the latest commit of `main` or `release/0.1`. Once a release line is published,
-the latest one is supported. A fix ships as a patch release on that line, or as
-the next minor release when it changes behaviour that
+The latest published release line is supported: currently 0.1.x, first
+published to npm as 0.1.0 on 2026-10-26. A fix ships as a patch release on that
+line, or as the next minor release when it changes behaviour that
 [RELEASING.md](RELEASING.md) counts as a breaking change below 1.0.
 
 ## Audit status

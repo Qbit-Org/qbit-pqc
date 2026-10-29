@@ -2,8 +2,9 @@
 
 Every release candidate and release must pass this checklist. Versions,
 release branches and tags are described in [RELEASING.md](RELEASING.md).
-Nothing has been published yet. The first version is published as described
-in "First publish" in RELEASING.md.
+0.1.0 was published to npm on 2026-10-26 under `latest`, with the bootstrap
+token that "First publish" in RELEASING.md describes; later versions are
+published through the package's trusted publisher.
 
 ## Package Policy
 
