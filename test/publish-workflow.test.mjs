@@ -2,8 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-const workflow = name =>
-  readFileSync(new URL(`../.github/workflows/${name}`, import.meta.url), 'utf8')
+const workflow = name => readFileSync(new URL(`../.github/workflows/${name}`, import.meta.url), 'utf8')
 const ci = workflow('ci.yml')
 const publish = workflow('publish.yml')
 
@@ -69,7 +68,12 @@ function runCommands(text) {
       block.push(next)
     }
     const indent = Math.min(...block.filter(next => next.trim() !== '').map(next => next.search(/\S/)))
-    return [block.map(next => next.slice(indent)).join('\n').trimEnd()]
+    return [
+      block
+        .map(next => next.slice(indent))
+        .join('\n')
+        .trimEnd(),
+    ]
   })
 }
 
@@ -140,9 +144,9 @@ describe('publish workflow', () => {
     expect(verify).toContain('pnpm format:check')
     const gates = verify.filter(command => command !== 'pnpm format:check')
     // Verbatim, or with options added, as build's install adds engine-strict.
-    expect(
-      gates.filter(command => !commands.some(run => run === command || run.startsWith(`${command} --`)))
-    ).toEqual([])
+    expect(gates.filter(command => !commands.some(run => run === command || run.startsWith(`${command} --`)))).toEqual(
+      []
+    )
   })
 
   it('pins every action to a full commit SHA, and an action CI uses to its CI pin', () => {

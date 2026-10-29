@@ -154,22 +154,19 @@ describe('a zero() that throws during cleanup', () => {
     },
   ]
 
-  it.each(nativeFailures)(
-    '$name frees everything and throws the native error',
-    async ({ fail, call }) => {
-      const heap = await staleHeapClient()
-      fail(heap.module, () => {
-        heap.grow()
-        return OUT_OF_MEMORY
-      })
+  it.each(nativeFailures)('$name frees everything and throws the native error', async ({ fail, call }) => {
+    const heap = await staleHeapClient()
+    fail(heap.module, () => {
+      heap.grow()
+      return OUT_OF_MEMORY
+    })
 
-      const error = thrown(() => call(heap.client))
+    const error = thrown(() => call(heap.client))
 
-      expectStaleAndFreed(heap)
-      expect(error).toBeInstanceOf(PqcError)
-      expect((error as PqcError).kind).toBe('OUT_OF_MEMORY')
-    }
-  )
+    expectStaleAndFreed(heap)
+    expect(error).toBeInstanceOf(PqcError)
+    expect((error as PqcError).kind).toBe('OUT_OF_MEMORY')
+  })
 
   it('signWithStats frees everything and throws the error from reading its stats', async () => {
     const heap = await staleHeapClient()
@@ -240,9 +237,7 @@ describe('a zero() that throws during cleanup', () => {
 
     expectStaleAndFreed(heap)
     expect(error).toBeInstanceOf(TypeError)
-    expect((error as TypeError).message).toBe(
-      messageOf(() => heap.module.HEAPU8.set(new Uint8Array(1), 0))
-    )
+    expect((error as TypeError).message).toBe(messageOf(() => heap.module.HEAPU8.set(new Uint8Array(1), 0)))
     expect((error as TypeError).message).not.toBe(staleFillMessage(heap.module))
   })
 })

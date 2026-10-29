@@ -40,10 +40,7 @@ const MANIFEST_HEADER = [
 ]
 
 export function gitBlobSha(bytes) {
-  return createHash('sha1')
-    .update(`blob ${bytes.length}\0`)
-    .update(bytes)
-    .digest('hex')
+  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')
 }
 
 // Manifest lines separate SHA and path with whitespace, so paths may not
@@ -61,9 +58,7 @@ export function parseUpstreamPin(text) {
   }
   const commit = matches[0][1]
   if (!OBJECT_ID.test(commit)) {
-    throw new Error(
-      `${UPSTREAM_FILE} pinned commit is not a full 40-hex SHA-1: ${JSON.stringify(commit)}`
-    )
+    throw new Error(`${UPSTREAM_FILE} pinned commit is not a full 40-hex SHA-1: ${JSON.stringify(commit)}`)
   }
   return commit
 }
@@ -113,12 +108,7 @@ export function parseManifest(text) {
 
 export function formatManifest({ commit, entries }) {
   const paths = [...entries.keys()].sort()
-  return [
-    ...MANIFEST_HEADER,
-    `commit ${commit}`,
-    ...paths.map(path => `${entries.get(path)}  ${path}`),
-    '',
-  ].join('\n')
+  return [...MANIFEST_HEADER, `commit ${commit}`, ...paths.map(path => `${entries.get(path)}  ${path}`), ''].join('\n')
 }
 
 // Returns every path under `root` (POSIX separators). Anything that is not a
@@ -157,9 +147,7 @@ export function verifyVendorTree(vendorDir, manifest) {
   const pin = parseUpstreamPin(upstreamText)
 
   if (manifest.commit !== pin) {
-    errors.push(
-      `${MANIFEST_FILE} commit ${manifest.commit} does not match ${UPSTREAM_FILE} pin ${pin}`
-    )
+    errors.push(`${MANIFEST_FILE} commit ${manifest.commit} does not match ${UPSTREAM_FILE} pin ${pin}`)
   }
 
   const listed = new Set(manifest.entries.keys())

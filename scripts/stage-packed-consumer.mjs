@@ -1,13 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
@@ -26,17 +18,13 @@ export function assertPackedPackageRoot({ consumerDir, packageRoot, repoRoot }) 
   const expectedPackageRoot = resolve(consumerDir, 'node_modules', '@qbit-oss', 'pqc')
   const resolvedPackageRoot = resolve(packageRoot)
   if (resolvedPackageRoot !== expectedPackageRoot) {
-    throw new Error(
-      `packed package root must be ${expectedPackageRoot}, received ${resolvedPackageRoot}`
-    )
+    throw new Error(`packed package root must be ${expectedPackageRoot}, received ${resolvedPackageRoot}`)
   }
 
   const relativeToRepo = relative(resolve(repoRoot), resolvedPackageRoot)
   const isInsideRepo =
     relativeToRepo === '' ||
-    (relativeToRepo !== '..' &&
-      !relativeToRepo.startsWith(`..${sep}`) &&
-      !isAbsolute(relativeToRepo))
+    (relativeToRepo !== '..' && !relativeToRepo.startsWith(`..${sep}`) && !isAbsolute(relativeToRepo))
   if (isInsideRepo) {
     throw new Error(`packed package root must be outside the repository: ${resolvedPackageRoot}`)
   }
@@ -68,11 +56,7 @@ export function stagePackedConsumer(repoRoot, prefix) {
     mkdirSync(consumerDir)
     writeFileSync(
       join(consumerDir, 'package.json'),
-      `${JSON.stringify(
-        { name: 'qbit-pqc-consumer', private: true, version: '0.0.0', type: 'module' },
-        null,
-        2
-      )}\n`
+      `${JSON.stringify({ name: 'qbit-pqc-consumer', private: true, version: '0.0.0', type: 'module' }, null, 2)}\n`
     )
 
     run('npm', ['install', '--no-audit', '--no-fund', tarballPath], { cwd: consumerDir })

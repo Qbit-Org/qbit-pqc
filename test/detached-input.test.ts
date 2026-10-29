@@ -58,8 +58,7 @@ type ResizableArrayBufferCtor = new (
 ) => ArrayBuffer & { resize(byteLength: number): void }
 
 const ResizableArrayBuffer = ArrayBuffer as unknown as ResizableArrayBufferCtor
-const supportsResizableBuffers =
-  typeof (ArrayBuffer.prototype as { resize?: unknown }).resize === 'function'
+const supportsResizableBuffers = typeof (ArrayBuffer.prototype as { resize?: unknown }).resize === 'function'
 
 const detachedDescriptor = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'detached')
 
@@ -158,21 +157,18 @@ describe('detached and out-of-bounds byte inputs', () => {
     expect(client.verify(pair.publicKey, plain, signature)).toBe(true)
   })
 
-  it.runIf(supportsResizableBuffers)(
-    'rejects a view pushed out of bounds by shrinking a resizable ArrayBuffer',
-    () => {
-      const plain = messageBytes('shrunk')
-      const buffer = new ResizableArrayBuffer(plain.length + 8, { maxByteLength: plain.length + 8 })
-      const msg = new Uint8Array(buffer, 8, plain.length)
-      msg.set(plain)
-      buffer.resize(4)
-      expect(msg.length).toBe(0)
+  it.runIf(supportsResizableBuffers)('rejects a view pushed out of bounds by shrinking a resizable ArrayBuffer', () => {
+    const plain = messageBytes('shrunk')
+    const buffer = new ResizableArrayBuffer(plain.length + 8, { maxByteLength: plain.length + 8 })
+    const msg = new Uint8Array(buffer, 8, plain.length)
+    msg.set(plain)
+    buffer.resize(4)
+    expect(msg.length).toBe(0)
 
-      expect(() => client.sign(pair.secretKey, msg)).toThrow(TypeError)
-      expect(() => client.sign(pair.secretKey, msg)).toThrow(DETACHED_ERROR)
-      expect(() => client.verify(pair.publicKey, msg, emptyMessageSignature)).toThrow(TypeError)
-    }
-  )
+    expect(() => client.sign(pair.secretKey, msg)).toThrow(TypeError)
+    expect(() => client.sign(pair.secretKey, msg)).toThrow(DETACHED_ERROR)
+    expect(() => client.verify(pair.publicKey, msg, emptyMessageSignature)).toThrow(TypeError)
+  })
 
   it('rejects detached and out-of-bounds Node Buffer views despite Buffer.prototype.slice', () => {
     const plain = messageBytes('buffer')
@@ -184,9 +180,7 @@ describe('detached and out-of-bounds byte inputs', () => {
     expect(detachedBuffer.length).toBe(0)
 
     expect(() => client.sign(pair.secretKey, detachedBuffer)).toThrow(TypeError)
-    expect(() => client.verify(pair.publicKey, detachedBuffer, emptyMessageSignature)).toThrow(
-      TypeError
-    )
+    expect(() => client.verify(pair.publicKey, detachedBuffer, emptyMessageSignature)).toThrow(TypeError)
 
     if (supportsResizableBuffers) {
       const resizable = new ResizableArrayBuffer(plain.length + 8, { maxByteLength: plain.length + 8 })

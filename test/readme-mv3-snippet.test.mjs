@@ -12,10 +12,9 @@ describe('README MV3 snippet', () => {
   it('is the code pnpm typecheck compiles', () => {
     const readme = readFileSync(join(repoRoot, 'README.md'), 'utf8')
     const fixture = readFileSync(join(repoRoot, 'test/types/mv3-wasm-import.mts'), 'utf8')
-    const snippet =
-      /```ts\n(import \{ init \} from '@qbit-oss\/pqc'\nimport createPqcModule [\s\S]*?)```/.exec(
-        readme
-      )?.[1]
+    const snippet = /```ts\n(import \{ init \} from '@qbit-oss\/pqc'\nimport createPqcModule [\s\S]*?)```/.exec(
+      readme
+    )?.[1]
 
     expect(snippet).toBeDefined()
     for (const block of snippet.trim().split('\n\n')) {

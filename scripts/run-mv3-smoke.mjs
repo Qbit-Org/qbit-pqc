@@ -1,11 +1,5 @@
 #!/usr/bin/env node
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,11 +13,7 @@ import {
   chromeSandboxFlags,
   findPinnedChromeForTesting,
 } from './chrome-for-testing.mjs'
-import {
-  assertPackedPackageRoot,
-  removePackedConsumer,
-  stagePackedConsumer,
-} from './stage-packed-consumer.mjs'
+import { assertPackedPackageRoot, removePackedConsumer, stagePackedConsumer } from './stage-packed-consumer.mjs'
 import { installTerminationHandlers } from './termination-handlers.mjs'
 
 const ARTIFACT_SOURCE = 'installed-packed-tarball'
@@ -48,9 +38,7 @@ function parseArgs(argv) {
 
 function rejectBrandedChrome(chromePath) {
   if (chromePath.includes('/Google Chrome.app/')) {
-    throw new Error(
-      'branded Google Chrome is not supported for this smoke; use Chrome for Testing'
-    )
+    throw new Error('branded Google Chrome is not supported for this smoke; use Chrome for Testing')
   }
 }
 
@@ -152,10 +140,7 @@ async function findServiceWorkerTarget(port, timeoutMs) {
 }
 
 async function findExtensionId(profileDir, extensionDir, timeoutMs) {
-  const prefsPaths = [
-    join(profileDir, 'Default', 'Secure Preferences'),
-    join(profileDir, 'Default', 'Preferences'),
-  ]
+  const prefsPaths = [join(profileDir, 'Default', 'Secure Preferences'), join(profileDir, 'Default', 'Preferences')]
   const started = Date.now()
   while (Date.now() - started < timeoutMs) {
     for (const prefsPath of prefsPaths) {
@@ -163,8 +148,7 @@ async function findExtensionId(profileDir, extensionDir, timeoutMs) {
         const prefs = JSON.parse(readFileSync(prefsPath, 'utf8'))
         const settings = prefs.extensions?.settings ?? {}
         for (const [id, setting] of Object.entries(settings)) {
-          const extensionPath =
-            typeof setting.path === 'string' ? resolve(dirname(prefsPath), setting.path) : ''
+          const extensionPath = typeof setting.path === 'string' ? resolve(dirname(prefsPath), setting.path) : ''
           if (
             setting.path === extensionDir ||
             extensionPath === extensionDir ||
@@ -223,9 +207,7 @@ function cdpConnect(webSocketDebuggerUrl) {
     }
     pending.delete(message.id)
     if (message.error) {
-      entry.reject(
-        new Error(`${entry.method} failed: ${message.error.message}: ${message.error.data ?? ''}`)
-      )
+      entry.reject(new Error(`${entry.method} failed: ${message.error.message}: ${message.error.data ?? ''}`))
     } else {
       entry.resolve(message.result)
     }
@@ -233,16 +215,10 @@ function cdpConnect(webSocketDebuggerUrl) {
 
   const open = new Promise((resolveOpen, rejectOpen) => {
     ws.addEventListener('open', resolveOpen, { once: true })
-    ws.addEventListener(
-      'error',
-      event => rejectOpen(event.error ?? new Error('CDP WebSocket failed to open')),
-      { once: true }
-    )
-    ws.addEventListener(
-      'close',
-      () => rejectOpen(new Error('CDP WebSocket closed before opening')),
-      { once: true }
-    )
+    ws.addEventListener('error', event => rejectOpen(event.error ?? new Error('CDP WebSocket failed to open')), {
+      once: true,
+    })
+    ws.addEventListener('close', () => rejectOpen(new Error('CDP WebSocket closed before opening')), { once: true })
   })
 
   ws.addEventListener('error', event => {
@@ -529,9 +505,7 @@ try {
   const chromeUnavailable = new Promise((_, rejectUnavailable) => {
     chrome.once('error', rejectUnavailable)
     chrome.once('exit', (code, signal) => {
-      rejectUnavailable(
-        new Error(`Chrome exited before startup completed (code ${code}, signal ${signal})`)
-      )
+      rejectUnavailable(new Error(`Chrome exited before startup completed (code ${code}, signal ${signal})`))
     })
   })
   chrome.stderr.on('data', chunk => {
@@ -626,10 +600,7 @@ try {
   if (interrupted) {
     // The signal handler owns the conventional 130/143 exit after shared cleanup.
   } else if (failure && cleanupErrors.length > 0) {
-    throw new AggregateError(
-      [failure, ...cleanupErrors],
-      'packed-tarball MV3 smoke and cleanup both failed'
-    )
+    throw new AggregateError([failure, ...cleanupErrors], 'packed-tarball MV3 smoke and cleanup both failed')
   } else if (failure) {
     throw failure
   } else if (cleanupErrors.length > 0) {

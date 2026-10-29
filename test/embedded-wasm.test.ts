@@ -7,21 +7,13 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import goldenFixture from '../fixtures/slh-dsa-golden.json'
-import {
-  constants,
-  init,
-  type PqcClient,
-  type PqcWasmModuleFactory,
-  type PqcWasmModuleOptions,
-} from '../src/index'
+import { constants, init, type PqcClient, type PqcWasmModuleFactory, type PqcWasmModuleOptions } from '../src/index'
 
 const wasmDir = fileURLToPath(new URL('../wasm/', import.meta.url))
 
 // The pqc.wasm entry of wasm/SHA256SUMS, which `pnpm check:wasm` checks against
 // wasm/pqc.wasm and `pnpm check:wasm:repro` against a rebuild of it.
-const pinnedWasmSha256 = /^([0-9a-f]{64}) {2}pqc\.wasm$/m.exec(
-  readFileSync(join(wasmDir, 'SHA256SUMS'), 'utf8')
-)?.[1]
+const pinnedWasmSha256 = /^([0-9a-f]{64}) {2}pqc\.wasm$/m.exec(readFileSync(join(wasmDir, 'SHA256SUMS'), 'utf8'))?.[1]
 
 // Copies of pqc.wasm carry this custom section, which the shipped file lacks,
 // so the bytes handed to WebAssembly.instantiate show which file was loaded.
@@ -31,11 +23,7 @@ function markedWasm(): Buffer {
   const name = Buffer.from(COPY_MARKER)
   // Section id 0 (custom), then the section size and the name length, each a
   // one-byte LEB128 value while the name is shorter than 127 bytes.
-  return Buffer.concat([
-    readFileSync(join(wasmDir, 'pqc.wasm')),
-    Uint8Array.of(0, name.length + 1, name.length),
-    name,
-  ])
+  return Buffer.concat([readFileSync(join(wasmDir, 'pqc.wasm')), Uint8Array.of(0, name.length + 1, name.length), name])
 }
 
 function sha256(source: unknown): string {
@@ -141,9 +129,7 @@ describe('the copy of pqc.wasm embedded in the package', () => {
     await init({ locateFile: () => undefined })
 
     expect(instantiate.mock.calls.map(([source]) => sha256(source))).toEqual([pinnedWasmSha256])
-    expect(wasmFilesRead(readFileSyncSpy).map(path => fileURLToPath(path))).toEqual([
-      join(wasmDir, 'pqc.wasm'),
-    ])
+    expect(wasmFilesRead(readFileSyncSpy).map(path => fileURLToPath(path))).toEqual([join(wasmDir, 'pqc.wasm')])
   })
 
   it('gives way to wasmBinary', async () => {

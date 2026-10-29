@@ -155,11 +155,7 @@ describe('init() with the same options', () => {
     const fromBytes = await pqc.init({ wasmBinary })
     expectSameClient(fromBytes, other.client, false)
     expectSameClient(await pqc.init({ wasmBinary }), fromBytes)
-    expectSameClient(
-      await pqc.init({ wasmBinary: readFileSync(join(wasmDir, 'pqc.wasm')) }),
-      fromBytes,
-      false
-    )
+    expectSameClient(await pqc.init({ wasmBinary: readFileSync(join(wasmDir, 'pqc.wasm')) }), fromBytes, false)
   })
 
   it('treats init(), init(undefined) and init({}) as the same options', async () => {
@@ -323,9 +319,7 @@ describe('a load failure in Node', () => {
     const { cause } = error as Pqc.PqcLoadError
     expect(cause).toBeInstanceOf(Error)
     expect(String(cause)).toContain(`${dir}/pqc.wasm`)
-    expect((error as Error).message).toBe(
-      `init() could not load ${dir}/pqc.wasm: ${(cause as Error).message}`
-    )
+    expect((error as Error).message).toBe(`init() could not load ${dir}/pqc.wasm: ${(cause as Error).message}`)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -408,9 +402,7 @@ describe('a load failure with no file to name', () => {
     // Emscripten's abort, which names the refusal.
     const { cause } = error as Pqc.PqcLoadError
     expect(String(cause)).toContain('Refused to compile')
-    expect((error as Error).message).toBe(
-      `init() could not load the WASM module: ${(cause as Error).message}`
-    )
+    expect((error as Error).message).toBe(`init() could not load the WASM module: ${(cause as Error).message}`)
   })
 
   it("rejects the default init() with a PqcLoadError when the package's loader cannot be imported", async () => {
@@ -457,8 +449,7 @@ describe('a load failure with no file to name', () => {
     expect(error).toMatchObject({
       url: undefined,
       message:
-        'init() could not load the WASM module: ' +
-        'pqc wasm public-key size does not match TypeScript constants',
+        'init() could not load the WASM module: ' + 'pqc wasm public-key size does not match TypeScript constants',
     })
     expect(pqc.isInitialized()).toBe(false)
   })
@@ -557,14 +548,12 @@ describe('the status of a failed load outside Node', () => {
     vi.stubGlobal('fetch', fetchStub)
 
     let settled: unknown
-    const failed = pqc
-      .init({ createModule: failingLoad('https://cdn.example/pqc/', cause), locateFile: located })
-      .then(
-        () => undefined,
-        (reason: unknown) => {
-          settled = reason
-        }
-      )
+    const failed = pqc.init({ createModule: failingLoad('https://cdn.example/pqc/', cause), locateFile: located }).then(
+      () => undefined,
+      (reason: unknown) => {
+        settled = reason
+      }
+    )
     await vi.advanceTimersByTimeAsync(9999)
     expect(fetchStub).toHaveBeenCalledTimes(1)
     expect(settled).toBeUndefined()
@@ -604,9 +593,7 @@ describe('the status of a failed load outside Node', () => {
 
     expect(error).toMatchObject({ url: '/nope/pqc.wasm', status: 404 })
     expect(fetchStub).toHaveBeenCalledTimes(1)
-    expect(String((fetchStub.mock.calls[0] as unknown as [URL])[0])).toBe(
-      'https://app.example/nope/pqc.wasm'
-    )
+    expect(String((fetchStub.mock.calls[0] as unknown as [URL])[0])).toBe('https://app.example/nope/pqc.wasm')
   })
 
   it('requests nothing when the loader had the bytes and they failed to compile', async () => {

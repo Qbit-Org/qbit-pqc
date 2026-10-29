@@ -83,10 +83,7 @@ describe('workflow parsing helpers', () => {
         '    steps: []',
       ].join('\n')
     )
-    expect(runCommands(jobs.verify)).toEqual([
-      'pnpm exec browsers install chrome@1.2.3.4\npnpm test:mv3',
-      'pnpm test',
-    ])
+    expect(runCommands(jobs.verify)).toEqual(['pnpm exec browsers install chrome@1.2.3.4\npnpm test:mv3', 'pnpm test'])
   })
 })
 
