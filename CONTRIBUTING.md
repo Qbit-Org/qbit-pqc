@@ -136,12 +136,13 @@ Prettier ignores all four paths.
 
 `pnpm smoke:consumer` runs every `examples/*.mjs` against the installed tarball
 and checks that it prints what its `console.log` comments promise (see
-[examples/README.md](examples/README.md)). Every `js`, `mjs`, `ts` or `mts`
+[examples/README.md](examples/README.md)). Every JavaScript or TypeScript
 fence in README.md and `docs/` needs a `<!-- snippet: <file> -->` line right
-above it, naming the `examples/*.mjs` or `test/types/*.mts` file that contains
-its code; to add a snippet, put the code in such a file first (`pnpm typecheck`
-compiles every `test/types/*.mts`), then mark the fence, and
-`test/doc-snippets.test.mjs` checks the two agree.
+above it: a JavaScript fence names the `examples/*.mjs` file it shows in full,
+and a TypeScript fence a `test/types/*.mts` file, which `pnpm typecheck`
+compiles, holding each of its blocks as whole lines. To add a snippet, put the
+code in such a file first, then mark the fence; `test/doc-snippets.test.mjs`
+checks the two agree.
 
 ## Pull requests
 

@@ -8,7 +8,20 @@ import { checkExampleOutput, listExamples, promisedOutput } from '../scripts/exa
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const examplesDir = join(repoRoot, 'examples')
-const readExample = name => readFileSync(join(examplesDir, name), 'utf8')
+// Line endings as a checkout with core.autocrlf may write them.
+const readExample = name => readFileSync(join(examplesDir, name), 'utf8').replace(/\r\n/g, '\n')
+
+// Every module an example loads: import declarations (side-effect imports
+// included), export-from declarations and dynamic import() calls. A dynamic
+// import of anything but a string literal yields its expression, which no
+// allowed path matches.
+function importedSpecifiers(source) {
+  const declarations = [...source.matchAll(/^(?:import|export)\s(?:[^'"]*?\sfrom\s*)?['"]([^'"]+)['"]/gm)]
+  const dynamic = [...source.matchAll(/\bimport\s*\(\s*([^)]*?)\s*\)/g)].map(
+    ([, argument]) => /^(['"`])([^'"`]+)\1$/.exec(argument)?.[2] ?? argument
+  )
+  return [...declarations.map(([, specifier]) => specifier), ...dynamic]
+}
 
 describe('examples', () => {
   // pnpm smoke:consumer runs them from a project that installed the tarball,
@@ -21,7 +34,7 @@ describe('examples', () => {
 
     for (const name of listExamples(examplesDir)) {
       const source = readExample(name)
-      const specifiers = [...source.matchAll(/^import\s(?:[^'"]*?\sfrom\s)?['"]([^'"]+)['"]/gm)].map(match => match[1])
+      const specifiers = importedSpecifiers(source)
 
       expect(promisedOutput(source, name).length).toBeGreaterThan(0)
       expect(specifiers.length, `${name} imports nothing`).toBeGreaterThan(0)
@@ -48,6 +61,31 @@ describe('examples', () => {
   })
 })
 
+describe('importedSpecifiers', () => {
+  it('finds import and export-from declarations and dynamic imports', () => {
+    const source = [
+      "import 'node:process'",
+      'import {',
+      '  init,',
+      "} from '@qbit-oss/pqc'",
+      "export { keygen } from '../src/index.ts'",
+      "export * from './local.mjs'",
+      "export const label = 'from'",
+      "const lib = await import('../lib/index.mjs')",
+      'const other = await import(specifier)',
+    ].join('\n')
+
+    expect(importedSpecifiers(source)).toEqual([
+      'node:process',
+      '@qbit-oss/pqc',
+      '../src/index.ts',
+      './local.mjs',
+      '../lib/index.mjs',
+      'specifier',
+    ])
+  })
+})
+
 describe('promisedOutput', () => {
   it('reads the comment after each console.log, in order', () => {
     const source = [
@@ -56,6 +94,18 @@ describe('promisedOutput', () => {
       "const note = 'console.log is checked'",
       'console.log(verify(pk, msg, bad)) // false',
     ].join('\n')
+
+    expect(promisedOutput(source, 'demo.mjs')).toEqual(['true', 'false'])
+  })
+
+  it('skips commented-out calls, allows a semicolon and ignores trailing whitespace and CR', () => {
+    const source = [
+      '// console.log(debug) // 1',
+      '/* console.log(debug) // 2 */',
+      ' * console.log(debug) // 3',
+      'console.log(verify(pk, msg, sig)); // true  ',
+      'console.log(verify(pk, msg, bad)) //  false\t',
+    ].join('\r\n')
 
     expect(promisedOutput(source, 'demo.mjs')).toEqual(['true', 'false'])
   })
@@ -71,6 +121,7 @@ describe('promisedOutput', () => {
 describe('checkExampleOutput', () => {
   it('accepts exactly the promised lines', () => {
     expect(() => checkExampleOutput('demo.mjs', ['true', 'false'], 'true\nfalse\n')).not.toThrow()
+    expect(() => checkExampleOutput('demo.mjs', ['true', 'false'], 'true\r\nfalse\r\n')).not.toThrow()
   })
 
   it('names the example and both outputs when they differ', () => {
