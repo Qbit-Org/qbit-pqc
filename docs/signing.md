@@ -63,5 +63,8 @@ included.
 `SIGNING_LIMIT` is a separate cap, on the grind attempts for one message, not
 on signatures per key. Retrying the same bytes hits the same limit, so change
 the message or transaction bytes before signing again. A `SIGNING_LIMIT` error
-from `signWithStats` carries the signing stats, whose `capExceeded` holds the
-caps that were hit as bit flags from `constants.SIGN_LIMITS`.
+from `signWithStats` always carries the signing stats as `stats`, whose
+`capExceeded` holds the caps that were hit as bit flags from
+`constants.SIGN_LIMITS`. A `BAD_SIGNATURE` error carries them too when signing
+had started, that is when the signature or its self-check failed. On a failure
+before signing starts, and on any other error, `stats` is `undefined`.
