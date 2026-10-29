@@ -11,12 +11,12 @@ below is pinned to that commit.
 ## Install
 
 ```sh
-npm install @qbit-oss/pqc @qbit-oss/protocol@~0.1.0
+npm install @qbit-oss/pqc@~0.1.1 @qbit-oss/protocol@~0.1.0
 ```
 
-`~0.1.0` keeps `@qbit-oss/protocol` on the 0.1 line this page was checked
-against: below 1.0, a minor release such as 0.2.0 may change the callbacks and
-helpers used here.
+The `~` ranges keep both packages on the 0.1 lines this page was checked
+against, accepting only their patch releases: below 1.0, a minor release of
+either, such as 0.2.0, may change the functions and callbacks used here.
 
 ## Keys and addresses
 
@@ -27,7 +27,7 @@ signing keys name:
 
 <!-- snippet: test/types/qbit-js-guide.mts -->
 ```ts
-import { PqcError, init } from '@qbit-oss/pqc'
+import { init } from '@qbit-oss/pqc'
 import {
   P2MR_LEAF_VERSION_V1,
   P2mrPsbtSigningError,
@@ -37,6 +37,7 @@ import {
   p2mrLeafHash,
   qbitDataSigPqcHash,
   qbitWalletMessageHash,
+  serializePsbt,
   signP2mrPsbt,
   singleKeyLeafScript,
   validateP2mrSigningPlans,
@@ -48,6 +49,9 @@ import {
 
 declare const leafPrivateKey: Uint8Array // 32-byte BIP32 leaf private key
 declare const index: number // its index in the descriptor range
+// Persists signature counts per public key (hex) in one transaction, refusing
+// any that would take a key past 2^30
+declare function reserveSignatures(uses: Map<string, number>): Promise<void>
 
 const pqc = await init()
 const { pk32, sk64 } = pqc.deriveP2mrDescriptorKey(leafPrivateKey, index)
@@ -76,12 +80,14 @@ needs `allowLargeMessage`.
 [`createP2mrMessageProof`](https://github.com/Qbit-Org/qbit-js/blob/2f4637f08be83d4d47ddb6d79eb384d61fccecfb/packages/protocol/src/index.ts#L928)
 takes the signature from the caller. Sign the digest qbit-js derives from the
 message, never the message text: this package applies no domain separation of
-its own, and the proof's signature is checked over that digest.
+its own, and the proof's signature is checked over that digest. A proof uses
+one of the key's signatures, so reserve it first, as for a PSBT:
 
 <!-- snippet: test/types/qbit-js-guide.mts -->
 ```ts
 const message = 'Log in to example.com as this address'
 const digest = qbitDataSigPqcHash(qbitWalletMessageHash(message))
+await reserveSignatures(new Map([[bytesToHex(pk32), 1]]))
 const signature = pqc.sign(sk64, digest)
 const proof = createP2mrMessageProof({ message, address, pubkey: pk32, signature })
 ```
@@ -117,8 +123,6 @@ and asks a `sign` callback for its signature:
 ```ts
 declare const psbt: Psbt // from parsePsbt or createP2mrPsbt
 declare function secretKeyFor(pubkey: Uint8Array): Uint8Array | undefined // the wallet's keyring
-// Persists the counts in one transaction, refusing any that would take a key past 2^30
-declare function reserveSignatures(uses: Map<string, number>): Promise<void>
 
 const keys: P2mrSigningKey[] = [{ inputIndex: 0, pubkey: pk32, leafHash }]
 const sign: P2mrPsbtSignFn = (sighash, context) => {
@@ -154,7 +158,8 @@ const result = signP2mrPsbt({ psbt, keys, sign })
 
 A key is designed for at most 2^30 signatures, and this package counts none
 (see [Usage bound](signing.md#usage-bound)); every PSBT signature and message
-proof uses one. `signP2mrPsbt` reports each stored signature to an optional
+proof uses one, so reserve a use before every `pqc.sign`, as both snippets do.
+`signP2mrPsbt` reports each stored signature to an optional
 [`onSigned`](https://github.com/Qbit-Org/qbit-js/blob/2f4637f08be83d4d47ddb6d79eb384d61fccecfb/packages/protocol/src/index.ts#L2161-L2163)
 callback, but `onSigned` must be synchronous too, so it cannot wait for
 storage to persist a counter. Reserve the uses before signing instead, as the
@@ -196,23 +201,52 @@ When `sign` throws, returns a promise or returns a malformed signature, or
 `onSigned` throws or returns a promise, `signP2mrPsbt` throws a
 [`P2mrPsbtSigningError`](https://github.com/Qbit-Org/qbit-js/blob/2f4637f08be83d4d47ddb6d79eb384d61fccecfb/packages/protocol/src/index.ts#L2212)
 whose `psbt` holds every signature stored so far and whose `signed` lists
-them. Retry with that `psbt` and only the keys not in `signed`; a key whose
-signature is already present is refused before any signer call. Re-signing
-the same sighash with an intact key returns the same signature, so a retried
-plan reveals nothing new; [Usage bound](signing.md#usage-bound) says when that
-holds.
+them. What `sign` threw becomes its `cause`, so a `PqcError` from `pqc.sign`
+is the cause, not the error you catch. Recognize the wrapper with
+`P2mrPsbtSigningError.is` and the cause by its `name` and `kind`: `instanceof`
+fails for an error from another copy of either package or another realm.
 
-`signP2mrPsbt` wraps what `sign` throws, so a `PqcError` from `pqc.sign` is
-the `cause` of the `P2mrPsbtSigningError` (in phase `'sign'`), not the error
-you catch. One with `kind: 'SIGNING_LIMIT'` recurs for the same sighash, so
-change the transaction before signing again:
+Handle the error in the worker that ran `signP2mrPsbt`, since it holds
+`Uint8Array`s and a `PqcError` that `chrome.runtime.sendMessage` cannot pass
+as JSON, and reply to the service worker with only what it needs:
 
 <!-- snippet: test/types/qbit-js-guide.mts -->
 ```ts
-// signP2mrPsbt wraps what sign throws, so a PqcError is the cause of its error
-const needsNewTransaction = (error: unknown) =>
-  P2mrPsbtSigningError.is(error) && error.cause instanceof PqcError && error.cause.kind === 'SIGNING_LIMIT'
+// A PqcError's kind, read by name: instanceof fails across package copies and realms
+function pqcErrorKind(cause: unknown): string | undefined {
+  if (typeof cause !== 'object' || cause === null) {
+    return undefined
+  }
+  const { name, kind } = cause as { name?: unknown; kind?: unknown }
+  return name === 'PqcError' && typeof kind === 'string' ? kind : undefined
+}
+
+// In the worker: what the service worker needs from a failed signP2mrPsbt, as JSON
+function signingFailure(error: unknown) {
+  if (!P2mrPsbtSigningError.is(error)) {
+    throw error
+  }
+  return {
+    psbt: bytesToHex(serializePsbt(error.psbt)),
+    signed: error.signed.map(({ inputIndex, pubkey, leafHash }) => ({
+      inputIndex,
+      pubkey: bytesToHex(pubkey),
+      leafHash: bytesToHex(leafHash),
+    })),
+    phase: error.phase,
+    causeKind: pqcErrorKind(error.cause), // 'SIGNING_LIMIT', for example
+  }
+}
 ```
+
+Then decide in this order. A `causeKind` of `'SIGNING_LIMIT'` recurs for the
+same sighash, so change the transaction, which changes every sighash, and sign
+it as a new request with its own reservation. Otherwise retry with that `psbt`
+and only the keys not in `signed`, and reserve nothing for them: the first
+reservation covered every plan, and the plan that failed in phase `'sign'` was
+counted then. Re-signing its sighash with an intact key returns the same
+signature, so the retry reveals nothing new;
+[Usage bound](signing.md#usage-bound) says when that holds.
 
 ## Checklist
 
@@ -224,11 +258,14 @@ const needsNewTransaction = (error: unknown) =>
   `signP2mrPsbt` passes, never the message text or transaction bytes.
 - Keep `sign` and `onSigned` synchronous, and run `signP2mrPsbt` in the worker
   that holds the client.
-- Reserve each public key's counter uses before `signP2mrPsbt`, after
-  `validateP2mrSigningPlans` passes, in storage the reserving context can use,
-  and stop at 2^30 per key.
-- After a `P2mrPsbtSigningError`, retry with its `psbt` and only the keys not
-  in `signed`, and look for a `SIGNING_LIMIT` `PqcError` in its `cause`.
+- Reserve a counter use before every `pqc.sign`: one before each message
+  proof, and each public key's plan count before `signP2mrPsbt`, after
+  `validateP2mrSigningPlans` passes. Persist reservations where the reserving
+  context can, and stop at 2^30 per key.
+- Handle a `P2mrPsbtSigningError` in the worker and relay only JSON. First
+  check its cause for `kind: 'SIGNING_LIMIT'`, and sign a changed transaction
+  if so; otherwise retry with its `psbt` and only the keys not in `signed`,
+  without reserving them again.
 
 ## qbit-js references
 

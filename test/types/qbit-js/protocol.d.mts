@@ -1,28 +1,13 @@
 // Declarations copied from Qbit-Org/qbit-js packages/protocol/src/index.ts at
-// 2f4637f08be83d4d47ddb6d79eb384d61fccecfb (@qbit-oss/protocol 0.1.0), each
-// under the line range it came from, so test/types/qbit-js-guide.mts can
-// type-check docs/qbit-js.md without a qbit-js dependency
-// (test/types/tsconfig.node16.json maps @qbit-oss/protocol here). The JSDoc
-// above each declaration is removed, and functions and classes keep only their
-// signatures (`export declare`, a default parameter made optional, no
+// 2f4637f08be83d4d47ddb6d79eb384d61fccecfb (@qbit-oss/protocol 0.1.0), in
+// source order, each under the line range it came from, so
+// test/types/qbit-js-guide.mts can type-check docs/qbit-js.md without a qbit-js
+// dependency (test/types/tsconfig.node16.json maps @qbit-oss/protocol here). The
+// JSDoc above each declaration is removed, and functions and classes keep only
+// their signatures (`export declare`, a default parameter made optional, no
 // `override`); types and members are otherwise as written there. When the
 // guide moves to a newer @qbit-oss/protocol, copy these again from that
 // version.
-
-// index.ts:89
-export declare const P2MR_LEAF_VERSION_V1 = 0xc0
-// index.ts:135
-export declare const QBIT_WALLET_MESSAGE_DOMAIN = 'QbitWalletSignedMessage'
-// index.ts:136
-export declare const QBIT_DATA_SIG_PQC_DOMAIN = 'QbitDataSigPQC'
-// index.ts:137
-export declare const P2MR_MESSAGE_PROOF_TYPE = 'p2mr-message'
-// index.ts:138
-export declare const P2MR_MESSAGE_PROOF_VERSION = 1
-// index.ts:139
-export declare const P2MR_MESSAGE_PROOF_MODE = 'p2mr-pubkey'
-// index.ts:140
-export declare const P2MR_MESSAGE_ALGORITHM = 'SLH-DSA-SHA2-128s-bounded30'
 
 // index.ts:3
 export type QbitNetworkName = 'mainnet' | 'testnet4' | 'signet' | 'regtest'
@@ -49,6 +34,27 @@ export interface QbitNetworkParams {
     privatePrefix: string
   }
 }
+
+// index.ts:89
+export declare const P2MR_LEAF_VERSION_V1 = 0xc0
+
+// index.ts:135
+export declare const QBIT_WALLET_MESSAGE_DOMAIN = 'QbitWalletSignedMessage'
+
+// index.ts:136
+export declare const QBIT_DATA_SIG_PQC_DOMAIN = 'QbitDataSigPQC'
+
+// index.ts:137
+export declare const P2MR_MESSAGE_PROOF_TYPE = 'p2mr-message'
+
+// index.ts:138
+export declare const P2MR_MESSAGE_PROOF_VERSION = 1
+
+// index.ts:139
+export declare const P2MR_MESSAGE_PROOF_MODE = 'p2mr-pubkey'
+
+// index.ts:140
+export declare const P2MR_MESSAGE_ALGORITHM = 'SLH-DSA-SHA2-128s-bounded30'
 
 // index.ts:218-235
 export type QbitProtocolErrorCode =
@@ -127,6 +133,41 @@ export type VerifyP2mrMessageProofOptions =
       expectedNetwork: QbitNetworkName | QbitNetworkParams
     }
 
+// index.ts:522
+export declare function bytesToHex(bytes: Uint8Array): string
+
+// index.ts:571
+export declare function qbitWalletMessageHash(message: string): Uint8Array
+
+// index.ts:600
+export declare function qbitDataSigPqcHash(messageHash: Uint8Array): Uint8Array
+
+// index.ts:777-780
+export declare function p2mrAddressFromRoot(
+  root: Uint8Array,
+  network: QbitNetworkName | QbitNetworkParams
+): string
+
+// index.ts:784
+export declare function singleKeyLeafScript(pk32: Uint8Array): Uint8Array
+
+// index.ts:839-842
+export declare function p2mrLeafHash(
+  leafVersion: number,
+  script?: Uint8Array
+): Uint8Array
+
+// index.ts:928
+export declare function createP2mrMessageProof(params: CreateP2mrMessageProofParams): P2mrMessageProof
+
+// index.ts:1007-1012
+export declare function verifyP2mrMessageProof(
+  message: string,
+  proof: unknown,
+  verifyPqc: P2mrPqcVerifyFn,
+  options: VerifyP2mrMessageProofOptions
+): boolean
+
 // index.ts:1191-1199
 export interface P2mrOutpoint {
   /**
@@ -181,6 +222,9 @@ export interface Psbt {
   inputs: PsbtKeyValue[][]
   outputs: PsbtKeyValue[][]
 }
+
+// index.ts:1733
+export declare function serializePsbt(psbt: Psbt): Uint8Array
 
 // index.ts:2095-2105
 export interface P2mrPsbtSignContext {
@@ -275,41 +319,6 @@ export declare class P2mrPsbtSigningError extends QbitProtocolError {
     cause: unknown
   })
 }
-
-// index.ts:522
-export declare function bytesToHex(bytes: Uint8Array): string
-
-// index.ts:571
-export declare function qbitWalletMessageHash(message: string): Uint8Array
-
-// index.ts:600
-export declare function qbitDataSigPqcHash(messageHash: Uint8Array): Uint8Array
-
-// index.ts:777-780
-export declare function p2mrAddressFromRoot(
-  root: Uint8Array,
-  network: QbitNetworkName | QbitNetworkParams
-): string
-
-// index.ts:784
-export declare function singleKeyLeafScript(pk32: Uint8Array): Uint8Array
-
-// index.ts:839-842
-export declare function p2mrLeafHash(
-  leafVersion: number,
-  script?: Uint8Array
-): Uint8Array
-
-// index.ts:928
-export declare function createP2mrMessageProof(params: CreateP2mrMessageProofParams): P2mrMessageProof
-
-// index.ts:1007-1012
-export declare function verifyP2mrMessageProof(
-  message: string,
-  proof: unknown,
-  verifyPqc: P2mrPqcVerifyFn,
-  options: VerifyP2mrMessageProofOptions
-): boolean
 
 // index.ts:2295-2300
 export declare function validateP2mrSigningPlans(
