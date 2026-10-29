@@ -16,11 +16,7 @@ import { fileURLToPath } from 'node:url'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import {
-  checkPublish,
-  distTagForVersion,
-  packageFilePathspecs,
-} from '../scripts/check-publish.mjs'
+import { checkPublish, distTagForVersion, packageFilePathspecs } from '../scripts/check-publish.mjs'
 
 const scriptsDir = fileURLToPath(new URL('../scripts/', import.meta.url))
 
@@ -148,9 +144,7 @@ describe('publish guard', () => {
   })
 
   it('refuses a failing WASM hash check or reproducible rebuild', () => {
-    expect(checkPublish(root, { env: {}, runScript: runScripts('check:wasm') })).toEqual([
-      'pnpm check:wasm failed',
-    ])
+    expect(checkPublish(root, { env: {}, runScript: runScripts('check:wasm') })).toEqual(['pnpm check:wasm failed'])
     expect(calls).toEqual(['check:wasm'])
 
     calls = []
@@ -288,9 +282,7 @@ describe('release versions', () => {
       undefined,
       1,
     ]) {
-      expect(() => distTagForVersion(version), JSON.stringify(version)).toThrow(
-        /is not X\.Y\.Z or X\.Y\.Z-rc\.N/
-      )
+      expect(() => distTagForVersion(version), JSON.stringify(version)).toThrow(/is not X\.Y\.Z or X\.Y\.Z-rc\.N/)
     }
   })
 })

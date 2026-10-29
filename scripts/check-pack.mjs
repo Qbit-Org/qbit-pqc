@@ -6,12 +6,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import {
-  pathsFromGitStatus,
-  selectPackManifest,
-  validateTrackedPackFiles,
-  validatePackFiles,
-} from './pack-policy.mjs'
+import { pathsFromGitStatus, selectPackManifest, validateTrackedPackFiles, validatePackFiles } from './pack-policy.mjs'
 import { packValidatedTarball, removePackedConsumer } from './stage-packed-consumer.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
@@ -32,14 +27,10 @@ execFileSync('pnpm', ['build'], { cwd: repoRoot, stdio: 'inherit' })
 // Lifecycle output is not part of npm's JSON contract. Build explicitly and
 // suppress lifecycle scripts for this dry run; real tarball smokes exercise
 // the package's prepack hook.
-const output = execFileSync(
-  'npm',
-  ['pack', '--json', '--dry-run', '--ignore-scripts', '--silent'],
-  {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  }
-)
+const output = execFileSync('npm', ['pack', '--json', '--dry-run', '--ignore-scripts', '--silent'], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+})
 
 let packResult
 try {

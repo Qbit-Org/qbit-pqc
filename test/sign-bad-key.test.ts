@@ -79,10 +79,7 @@ describe('sign with an inconsistent secret key', () => {
       expect(error.code).toBe(errorCodes.BITCOIN_PQC_ERROR_BAD_KEY)
       expect(error.nativeName).toBe('BITCOIN_PQC_ERROR_BAD_KEY')
 
-      const statsError = expectPqcError(
-        () => client.signWithStats(corrupted, MESSAGE),
-        'BAD_KEY'
-      )
+      const statsError = expectPqcError(() => client.signWithStats(corrupted, MESSAGE), 'BAD_KEY')
       expect(statsError.operation).toBe('signWithStats')
       expect(statsError.code).toBe(errorCodes.BITCOIN_PQC_ERROR_BAD_KEY)
     })
@@ -128,14 +125,11 @@ describe('sign with an inconsistent secret key', () => {
 
   it('maps BITCOIN_PQC_ERROR_OUT_OF_MEMORY to the OUT_OF_MEMORY kind', () => {
     expect(errorCodes.BITCOIN_PQC_ERROR_OUT_OF_MEMORY).toBe(-6)
-    expect(nativeErrorName(errorCodes.BITCOIN_PQC_ERROR_OUT_OF_MEMORY)).toBe(
-      'BITCOIN_PQC_ERROR_OUT_OF_MEMORY'
-    )
+    expect(nativeErrorName(errorCodes.BITCOIN_PQC_ERROR_OUT_OF_MEMORY)).toBe('BITCOIN_PQC_ERROR_OUT_OF_MEMORY')
     expect(nativeErrorKind(errorCodes.BITCOIN_PQC_ERROR_OUT_OF_MEMORY)).toBe('OUT_OF_MEMORY')
 
     const originalSign = module._qbit_pqc_sign
-    module._qbit_pqc_sign = (() =>
-      errorCodes.BITCOIN_PQC_ERROR_OUT_OF_MEMORY) as PqcWasmModule['_qbit_pqc_sign']
+    module._qbit_pqc_sign = (() => errorCodes.BITCOIN_PQC_ERROR_OUT_OF_MEMORY) as PqcWasmModule['_qbit_pqc_sign']
     try {
       const error = expectPqcError(() => client.sign(secretKey, MESSAGE), 'OUT_OF_MEMORY')
       expect(error.code).toBe(errorCodes.BITCOIN_PQC_ERROR_OUT_OF_MEMORY)

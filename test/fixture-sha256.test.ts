@@ -114,9 +114,9 @@ describe('verifySidecar', () => {
     const edited = Buffer.from(goldenBytes)
     edited[edited.length - 2] ^= 0x01
     expect(() => verifySidecar(goldenSidecar, goldenSidecarText, edited)).toThrow(/does not match/)
-    expect(() => verifySidecar(goldenSidecar, goldenSidecarText, Buffer.concat([goldenBytes, Buffer.from('\n')]))).toThrow(
-      /does not match/,
-    )
+    expect(() =>
+      verifySidecar(goldenSidecar, goldenSidecarText, Buffer.concat([goldenBytes, Buffer.from('\n')]))
+    ).toThrow(/does not match/)
   })
 
   it('fails when only the sidecar digest is edited', () => {
@@ -127,7 +127,9 @@ describe('verifySidecar', () => {
 
   it('fails when the sidecar names a different file', () => {
     const edited = goldenSidecarText.replace('slh-dsa-golden.json', 'qbit-core-derivation.json')
-    expect(() => verifySidecar(goldenSidecar, edited, goldenBytes)).toThrow(/names "fixtures\/qbit-core-derivation.json"/)
+    expect(() => verifySidecar(goldenSidecar, edited, goldenBytes)).toThrow(
+      /names "fixtures\/qbit-core-derivation.json"/
+    )
   })
 
   it('fails when the sidecar names an absolute path', () => {

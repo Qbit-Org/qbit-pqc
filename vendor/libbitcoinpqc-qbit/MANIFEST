@@ -1,7 +1,7 @@
 # Git blob SHA-1 of every vendored file at the pinned upstream commit.
 # Verify:     pnpm check:vendor
 # Regenerate: node scripts/check-vendor.mjs --write-from <qbit-libbitcoinpqc checkout>
-commit 70008b9362f4f35f3be94283173fb41d28badb38
+commit edcea6cb89941fd60c8919eee74ec490ec914489
 719874dc53ce51a9fc2d8de57c06226c8ed895d4  LICENSE
 6866d9cf1ec84a582860518917004d7602297cf1  include/libbitcoinpqc/bitcoinpqc.h
 2307809060cbaf0a1ce14613379745cc02d6320c  include/libbitcoinpqc/sign_stats.h
@@ -20,7 +20,7 @@ aded564303d5e55fe34fe7484fbe47d0b31ae715  sphincsplus/ref/context.h
 5a860c405fdee5c559ab85696be38ce3507d9e0f  sphincsplus/ref/fors.c
 8d98017a0532b6bc4a0c777e40ccad0700bf1b86  sphincsplus/ref/fors.h
 b141f099c4e392cb2f9e537a030479058eb19c14  sphincsplus/ref/hash.h
-f86531e776a2b7b1b7d6f8b9f64084c0e7657a7f  sphincsplus/ref/hash_sha2.c
+76c11c22ebac31e2872b90f86b558467a4a5eb5a  sphincsplus/ref/hash_sha2.c
 d13b719b9a28c0edbe868b8fe6127e9c7d537de0  sphincsplus/ref/merkle.c
 43a06c4944e8c8c207749e1744beedf53d5f5e22  sphincsplus/ref/merkle.h
 5bb773676818c413e12693671cf617a1633c540d  sphincsplus/ref/opt_flags.h
@@ -28,14 +28,14 @@ f9dbd3ccb13f1e4f487744ea62fe6aeaed69e5c2  sphincsplus/ref/params.h
 3553048ce0e9fb705ad6de2aa78d1846d95dbc03  sphincsplus/ref/params/params-sphincs-sha2-128s-bounded30.h
 671c1b1500aec56d8b1e5ca092ae9aa5ac1d8dbc  sphincsplus/ref/randombytes.h
 9c05aa355f71c9be1b07114e3f63a5bc04acb2ca  sphincsplus/ref/randombytes_custom.c
-10ccc0987879ec6036e6523e5079bf733f0413b5  sphincsplus/ref/sha2.c
-732ab4bfcf63f89c1b18ea4a6d6fa40d0d5f95b9  sphincsplus/ref/sha2.h
+4cdeba762898eb41200ef0c574a64e686aea5547  sphincsplus/ref/sha2.c
+ffac1c1047a31b638bfa3bf0cdfded316460bfdf  sphincsplus/ref/sha2.h
 39ff81ece8307788c9dfbffcd38fb9fc3bf91f90  sphincsplus/ref/sha2_armv8_sha.c
 0d4d39cbff812c97efdcc51c945044ec39f63fea  sphincsplus/ref/sha2_armv8_sha.h
 49f7e851cc51485c917ce3958ff47a48fca788f3  sphincsplus/ref/sha2_offsets.h
 3bb66d2282f011d32cb47b4a72700cede0b2e07d  sphincsplus/ref/sha2_x86_shani.c
 8df8560b8e44d7e4a4ea1b1bf8eaec8e5ddea8b4  sphincsplus/ref/sha2_x86_shani.h
-10847aa950d76ba61ac843d8ea61b6a05597cde2  sphincsplus/ref/sign.c
+ebbf0f06432d96412022067678797eebf362e296  sphincsplus/ref/sign.c
 ca94512c552d10417e82a35dc97c9d89147358bc  sphincsplus/ref/sign_stats.c
 ae998b457347393e5bce90584563ceece6f46080  sphincsplus/ref/sign_stats.h
 8687ccfb4db86603bf21f7ab519180b79dada148  sphincsplus/ref/thash.h

@@ -3,16 +3,18 @@
 //
 // Packs @qbit-oss/pqc into a tarball, installs that tarball into a clean throwaway
 // project OUTSIDE this repo (so workspace/monorepo resolution can never leak
-// in), and runs scripts/consumer-smoke.mjs against the installed package. This
-// validates the published artifact end to end: the `files` whitelist, the
+// in), and runs scripts/consumer-smoke.mjs against the installed package, then
+// every examples/*.mjs, checking that each prints what its comments promise.
+// This validates the published artifact end to end: the `files` whitelist, the
 // `exports` map (including the wasm subpaths), Node wasm resolution, and that
 // the package works when consumed by name — the class of bug that in-repo
 // tests and submodule consumption both hide.
 import { spawn } from 'node:child_process'
-import { copyFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { checkExampleOutput, listExamples, promisedOutput } from './examples.mjs'
 import { removePackedConsumer, stagePackedConsumer } from './stage-packed-consumer.mjs'
 import { installTerminationHandlers } from './termination-handlers.mjs'
 
@@ -23,15 +25,24 @@ let child
 let childClosed
 
 // Asynchronous so that a SIGINT or SIGTERM reaches the termination handler
-// while the child runs, rather than after it exits.
-function run(cmd, args, opts = {}) {
+// while the child runs, rather than after it exits. With captureStdout, the
+// child's stdout is still echoed, and the promise resolves with it.
+function run(cmd, args, { captureStdout = false, ...opts } = {}) {
   console.log(`+ ${cmd} ${args.join(' ')}${opts.cwd ? `  (cwd: ${opts.cwd})` : ''}`)
-  child = spawn(cmd, args, { stdio: 'inherit', ...opts })
+  child = spawn(cmd, args, { stdio: captureStdout ? ['inherit', 'pipe', 'inherit'] : 'inherit', ...opts })
+  let stdout = ''
+  if (captureStdout) {
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', chunk => {
+      stdout += chunk
+      process.stdout.write(chunk)
+    })
+  }
   childClosed = new Promise(resolveClose => child.once('close', resolveClose))
   return new Promise((resolveRun, rejectRun) => {
     child.once('error', rejectRun)
     child.once('close', (code, signal) => {
-      if (code === 0) resolveRun()
+      if (code === 0) resolveRun(stdout)
       else rejectRun(new Error(`${cmd} ${args.join(' ')} failed (code ${code}, signal ${signal})`))
     })
   })
@@ -76,8 +87,34 @@ packed = stagePackedConsumer(repoRoot, 'qbit-pqc-consumer-')
 let passed = false
 let failure
 try {
-  copyFileSync(join(here, 'consumer-smoke.mjs'), join(packed.consumerDir, 'consumer-smoke.mjs'))
+  for (const script of ['consumer-smoke.mjs', 'consumer-worker.mjs', 'package-surface.mjs', 'wasm-sha256.mjs']) {
+    copyFileSync(join(here, script), join(packed.consumerDir, script))
+  }
   await run('node', ['consumer-smoke.mjs'], { cwd: packed.consumerDir })
+
+  // TypeScript's node10 resolution reads no exports map, so the types of each
+  // subpath must resolve through typesVersions. Checked with the repository's
+  // TypeScript against the installed package.
+  const typesDir = join(packed.consumerDir, 'types-node10')
+  mkdirSync(typesDir)
+  for (const file of ['entries.ts', 'tsconfig.json']) {
+    copyFileSync(join(repoRoot, 'test/types/node10', file), join(typesDir, file))
+  }
+  await run(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', typesDir], {
+    cwd: packed.consumerDir,
+  })
+  console.log('node10 type resolution: PASS')
+
+  // Each example runs as a reader runs it: from a project that installed the
+  // tarball, importing the package by name.
+  mkdirSync(join(packed.consumerDir, 'examples'))
+  for (const name of listExamples(join(repoRoot, 'examples'))) {
+    const file = `examples/${name}`
+    const promised = promisedOutput(readFileSync(join(repoRoot, file), 'utf8'), file)
+    copyFileSync(join(repoRoot, file), join(packed.consumerDir, file))
+    checkExampleOutput(file, promised, await run('node', [file], { cwd: packed.consumerDir, captureStdout: true }))
+    console.log(`${file}: PASS`)
+  }
   passed = true
 } catch (error) {
   failure = error

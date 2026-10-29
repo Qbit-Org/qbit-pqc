@@ -5,3 +5,12 @@ fixtures/** -text
 # Vendored upstream sources must stay byte-identical to their upstream git
 # blobs (pnpm check:vendor), so never convert their line endings on checkout.
 vendor/libbitcoinpqc-qbit/** -text
+
+# wasm/SHA256SUMS pins pqc.mjs and pqc.wasm byte-for-byte (pnpm check:wasm),
+# so never convert their line endings on checkout.
+wasm/** -text
+
+# native/ is built into pqc.wasm and pqc.mjs, which pnpm check:wasm:repro
+# rebuilds and compares byte-for-byte, so never convert its line endings on
+# checkout.
+native/** -text

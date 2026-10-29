@@ -28,8 +28,9 @@
 static void secure_zero_local(void *ptr, size_t len)
 {
     volatile unsigned char *p = (volatile unsigned char *)ptr;
-    while (len-- > 0) {
+    while (len > 0) {
         *p++ = 0;
+        len--;
     }
 }
 

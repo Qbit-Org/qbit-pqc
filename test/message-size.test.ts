@@ -1,14 +1,5 @@
 import { createContext, runInContext } from 'node:vm'
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-  type MockInstance,
-} from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 
 import goldenFixture from '../fixtures/slh-dsa-golden.json'
 import {
@@ -98,9 +89,7 @@ function thrownBy(run: () => unknown): unknown {
 }
 
 function overLimitError(length: number): RangeError {
-  return new RangeError(
-    `msg must be at most ${LIMIT} bytes without options.allowLargeMessage, got ${length}`
-  )
+  return new RangeError(`msg must be at most ${LIMIT} bytes without options.allowLargeMessage, got ${length}`)
 }
 
 interface MessageApi {
@@ -113,10 +102,7 @@ type Signer = (api: MessageApi, sk: Uint8Array, msg: Uint8Array, options?: unkno
 
 const signers: Array<[string, Signer]> = [
   ['sign', (api, sk, msg, options) => api.sign(sk, msg, options as PqcMessageOptions)],
-  [
-    'signWithStats',
-    (api, sk, msg, options) => api.signWithStats(sk, msg, options as PqcMessageOptions).sig,
-  ],
+  ['signWithStats', (api, sk, msg, options) => api.signWithStats(sk, msg, options as PqcMessageOptions).sig],
 ]
 
 // Options that leave the size limit in place.
@@ -132,14 +118,8 @@ const capped: Array<[string, () => unknown]> = [
 const optedIn: Array<[string, () => unknown]> = [
   ['allowLargeMessage: true', () => ({ allowLargeMessage: true })],
   ['a frozen object', () => Object.freeze({ allowLargeMessage: true })],
-  [
-    'a null-prototype object',
-    () => Object.assign(Object.create(null) as object, { allowLargeMessage: true }),
-  ],
-  [
-    'a non-enumerable property',
-    () => Object.defineProperty({}, 'allowLargeMessage', { value: true }),
-  ],
+  ['a null-prototype object', () => Object.assign(Object.create(null) as object, { allowLargeMessage: true })],
+  ['a non-enumerable property', () => Object.defineProperty({}, 'allowLargeMessage', { value: true })],
 ]
 
 const foreignRealm = createContext()
@@ -161,11 +141,7 @@ const invalid: Array<[string, () => unknown, string]> = [
       })(),
     PLAIN_OBJECT_ERROR,
   ],
-  [
-    'an object inheriting the option',
-    () => Object.create({ allowLargeMessage: true }) as unknown,
-    PLAIN_OBJECT_ERROR,
-  ],
+  ['an object inheriting the option', () => Object.create({ allowLargeMessage: true }) as unknown, PLAIN_OBJECT_ERROR],
   [
     'an object from another realm',
     () => runInContext('({ allowLargeMessage: true })', foreignRealm),
@@ -194,11 +170,7 @@ const invalid: Array<[string, () => unknown, string]> = [
   ["allowLargeMessage: 'true'", () => ({ allowLargeMessage: 'true' }), BOOLEAN_ERROR],
   ['allowLargeMessage: 1', () => ({ allowLargeMessage: 1 }), BOOLEAN_ERROR],
   ['allowLargeMessage: null', () => ({ allowLargeMessage: null }), BOOLEAN_ERROR],
-  [
-    'allowLargeMessage: new Boolean(true)',
-    () => ({ allowLargeMessage: new Boolean(true) }),
-    BOOLEAN_ERROR,
-  ],
+  ['allowLargeMessage: new Boolean(true)', () => ({ allowLargeMessage: new Boolean(true) }), BOOLEAN_ERROR],
 ]
 
 interface NativeCall {
@@ -235,15 +207,11 @@ describe('message size limit for sign, signWithStats and verify', () => {
       calls.push({ length, sameBytes: copied.equals(expected) })
       return errorCodes.BITCOIN_PQC_OK
     }
-    vi.spyOn(module, '_qbit_pqc_sign').mockImplementation((_sig, _sk, msg, length) =>
+    vi.spyOn(module, '_qbit_pqc_sign').mockImplementation((_sig, _sk, msg, length) => record(msg, length))
+    vi.spyOn(module, '_qbit_pqc_sign_with_stats').mockImplementation((_sig, _stats, _sk, msg, length) =>
       record(msg, length)
     )
-    vi.spyOn(module, '_qbit_pqc_sign_with_stats').mockImplementation(
-      (_sig, _stats, _sk, msg, length) => record(msg, length)
-    )
-    vi.spyOn(module, '_qbit_pqc_verify').mockImplementation((_pk, msg, length) =>
-      record(msg, length)
-    )
+    vi.spyOn(module, '_qbit_pqc_verify').mockImplementation((_pk, msg, length) => record(msg, length))
     return calls
   }
 
@@ -303,23 +271,18 @@ describe('message size limit for sign, signWithStats and verify', () => {
         expect(malloc).toHaveBeenCalledWith(length)
       })
 
-      it.each([LIMIT + 1, VERY_LARGE])(
-        'throws a RangeError for a %i-byte msg before any wasm allocation',
-        length => {
-          const msg = messageOfLength(length)
-          const calls = stubNative(msg)
-          const heapBytes = client.wasmHeapBytes()
+      it.each([LIMIT + 1, VERY_LARGE])('throws a RangeError for a %i-byte msg before any wasm allocation', length => {
+        const msg = messageOfLength(length)
+        const calls = stubNative(msg)
+        const heapBytes = client.wasmHeapBytes()
 
-          for (const [, options] of capped) {
-            expect(() => run(entry(), pair.secretKey, msg, options())).toThrow(
-              overLimitError(length)
-            )
-          }
-          expect(calls).toEqual([])
-          expect(malloc).not.toHaveBeenCalled()
-          expect(client.wasmHeapBytes()).toBe(heapBytes)
+        for (const [, options] of capped) {
+          expect(() => run(entry(), pair.secretKey, msg, options())).toThrow(overLimitError(length))
         }
-      )
+        expect(calls).toEqual([])
+        expect(malloc).not.toHaveBeenCalled()
+        expect(client.wasmHeapBytes()).toBe(heapBytes)
+      })
 
       it.each([LIMIT + 1, VERY_LARGE])(
         'passes a %i-byte msg to native code whole only with allowLargeMessage',
@@ -358,23 +321,18 @@ describe('message size limit for sign, signWithStats and verify', () => {
 
       // The stub accepts every signature, so only the size check can make
       // these return false.
-      it.each([LIMIT + 1, VERY_LARGE])(
-        'returns false for a %i-byte msg before any wasm allocation',
-        length => {
-          const msg = messageOfLength(length)
-          const calls = stubNative(msg)
-          const heapBytes = client.wasmHeapBytes()
+      it.each([LIMIT + 1, VERY_LARGE])('returns false for a %i-byte msg before any wasm allocation', length => {
+        const msg = messageOfLength(length)
+        const calls = stubNative(msg)
+        const heapBytes = client.wasmHeapBytes()
 
-          for (const [, options] of capped) {
-            expect(
-              entry().verify(pair.publicKey, msg, smallSignature, options() as PqcMessageOptions)
-            ).toBe(false)
-          }
-          expect(calls).toEqual([])
-          expect(malloc).not.toHaveBeenCalled()
-          expect(client.wasmHeapBytes()).toBe(heapBytes)
+        for (const [, options] of capped) {
+          expect(entry().verify(pair.publicKey, msg, smallSignature, options() as PqcMessageOptions)).toBe(false)
         }
-      )
+        expect(calls).toEqual([])
+        expect(malloc).not.toHaveBeenCalled()
+        expect(client.wasmHeapBytes()).toBe(heapBytes)
+      })
 
       it.each([LIMIT + 1, VERY_LARGE])(
         'passes a %i-byte msg to native code whole only with allowLargeMessage',
@@ -384,9 +342,7 @@ describe('message size limit for sign, signWithStats and verify', () => {
 
           expect(entry().verify(pair.publicKey, msg, smallSignature)).toBe(false)
           for (const [, options] of optedIn) {
-            expect(
-              entry().verify(pair.publicKey, msg, smallSignature, options() as PqcMessageOptions)
-            ).toBe(true)
+            expect(entry().verify(pair.publicKey, msg, smallSignature, options() as PqcMessageOptions)).toBe(true)
           }
           expect(calls).toEqual(optedIn.map(() => ({ length, sameBytes: true })))
         }
@@ -396,9 +352,9 @@ describe('message size limit for sign, signWithStats and verify', () => {
         const calls = stubNative()
 
         for (const msg of [smallMessage, messageOfLength(LIMIT + 1)]) {
-          expect(() =>
-            entry().verify(pair.publicKey, msg, smallSignature, options() as PqcMessageOptions)
-          ).toThrow(new TypeError(message))
+          expect(() => entry().verify(pair.publicKey, msg, smallSignature, options() as PqcMessageOptions)).toThrow(
+            new TypeError(message)
+          )
         }
         expect(calls).toEqual([])
         expect(malloc).not.toHaveBeenCalled()
@@ -417,12 +373,8 @@ describe('message size limit for sign, signWithStats and verify', () => {
         },
       }) as PqcMessageOptions
 
-      expect(() => api.sign(pair.secretKey, smallMessage, options)).toThrow(
-        new TypeError(BOOLEAN_ERROR)
-      )
-      expect(() => api.signWithStats(pair.secretKey, smallMessage, options)).toThrow(
-        new TypeError(BOOLEAN_ERROR)
-      )
+      expect(() => api.sign(pair.secretKey, smallMessage, options)).toThrow(new TypeError(BOOLEAN_ERROR))
+      expect(() => api.signWithStats(pair.secretKey, smallMessage, options)).toThrow(new TypeError(BOOLEAN_ERROR))
       expect(() => api.verify(pair.publicKey, smallMessage, smallSignature, options)).toThrow(
         new TypeError(BOOLEAN_ERROR)
       )
@@ -478,13 +430,9 @@ describe('message size limit for sign, signWithStats and verify', () => {
       const msg = new Uint8Array(smallMessage)
       expect(() => api.sign(pair.secretKey, msg, detachingOptions(msg))).toThrow(DETACHED_ERROR)
       const statsMsg = new Uint8Array(smallMessage)
-      expect(() => api.signWithStats(pair.secretKey, statsMsg, detachingOptions(statsMsg))).toThrow(
-        DETACHED_ERROR
-      )
+      expect(() => api.signWithStats(pair.secretKey, statsMsg, detachingOptions(statsMsg))).toThrow(DETACHED_ERROR)
       const sig = new Uint8Array(smallSignature)
-      expect(() => api.verify(pair.publicKey, smallMessage, sig, detachingOptions(sig))).toThrow(
-        DETACHED_ERROR
-      )
+      expect(() => api.verify(pair.publicKey, smallMessage, sig, detachingOptions(sig))).toThrow(DETACHED_ERROR)
       expect(calls).toEqual([])
       expect(malloc).not.toHaveBeenCalled()
     })
@@ -513,9 +461,7 @@ describe('message size limit for sign, signWithStats and verify', () => {
     }
     try {
       outcomes.push(thrownBy(() => sign(pair.secretKey, msg, new Map() as PqcMessageOptions)))
-      outcomes.push(
-        thrownBy(() => sign(pair.secretKey, msg, { allowLargeMessages: true } as PqcMessageOptions))
-      )
+      outcomes.push(thrownBy(() => sign(pair.secretKey, msg, { allowLargeMessages: true } as PqcMessageOptions)))
       outcomes.push(thrownBy(() => signWithStats(pair.secretKey, msg, getterOptions)))
       outcomes.push(thrownBy(() => sign(pair.secretKey, msg, {})))
       outcomes.push(verify(pair.publicKey, msg, smallSignature, {}))
@@ -527,9 +473,7 @@ describe('message size limit for sign, signWithStats and verify', () => {
 
     expect(outcomes).toEqual([
       new TypeError(PLAIN_OBJECT_ERROR),
-      new TypeError(
-        'options must have no property other than allowLargeMessage, got allowLargeMessages'
-      ),
+      new TypeError('options must have no property other than allowLargeMessage, got allowLargeMessages'),
       new TypeError(BOOLEAN_ERROR),
       overLimitError(LIMIT + 1),
       false,
@@ -567,9 +511,7 @@ describe('message size limit for sign, signWithStats and verify', () => {
 
         // A valid signature, reported as invalid without the opt-in.
         expect(verify(pair.publicKey, msg, signature)).toBe(false)
-        expect(client.verify(pair.publicKey, msg, signature, { allowLargeMessage: false })).toBe(
-          false
-        )
+        expect(client.verify(pair.publicKey, msg, signature, { allowLargeMessage: false })).toBe(false)
         expect(verify(pair.publicKey, msg, signature, optIn)).toBe(true)
         expect(client.verify(pair.publicKey, msg, signature, optIn)).toBe(true)
       },
@@ -590,12 +532,8 @@ describe('message size limit for sign, signWithStats and verify', () => {
 
           expect(bytesToHex(golden.publicKey)).toBe(vector.publicKeyHex)
           expect(bytesToHex(golden.secretKey)).toBe(vector.secretKeyHex)
-          expect(bytesToHex(sign(golden.secretKey, msg, { allowLargeMessage: true }))).toBe(
-            vector.signatureHex
-          )
-          expect(bytesToHex(client.signWithStats(golden.secretKey, msg, {}).sig)).toBe(
-            vector.signatureHex
-          )
+          expect(bytesToHex(sign(golden.secretKey, msg, { allowLargeMessage: true }))).toBe(vector.signatureHex)
+          expect(bytesToHex(client.signWithStats(golden.secretKey, msg, {}).sig)).toBe(vector.signatureHex)
           expect(verify(golden.publicKey, msg, signature, { allowLargeMessage: false })).toBe(true)
           expect(client.verify(golden.publicKey, msg, signature, Object.create(null))).toBe(true)
         },

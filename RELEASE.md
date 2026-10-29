@@ -2,8 +2,9 @@
 
 Every release candidate and release must pass this checklist. Versions,
 release branches and tags are described in [RELEASING.md](RELEASING.md).
-Nothing has been published yet. The first version is published as described
-in "First publish" in RELEASING.md.
+0.1.0 was published to npm on 2026-10-26 under `latest`, with the bootstrap
+token that "First publish" in RELEASING.md describes; later versions are
+published through the package's trusted publisher.
 
 ## Package Policy
 
@@ -18,12 +19,9 @@ includes `.github`, `.context`, `native`, `scripts`, `test`, workspace lock and
 configuration files, and generated local artifacts. `pnpm pack:check` enforces
 the required files and this closed allowlist against both npm's dry-run manifest
 and the exact archive produced after `prepack`, and requires those inventories to
-match. Every packed file must also be tracked by git, except tsup's output,
-which must be exactly `lib/index.mjs`, `lib/index.mjs.map` and
-`lib/index.d.mts`. Uncommitted changes to packed files are only a warning
-there, so the check can run before a commit; the `prepublishOnly` guard
-refuses to publish them. The source repository remains the complete
-reproducible-build context.
+match. It and the `prepublishOnly` guard also check packed files against git,
+as "Publishing" in [RELEASING.md](RELEASING.md) describes. The source
+repository remains the complete reproducible-build context.
 
 ## Derivation Fixture Gate
 
@@ -74,25 +72,21 @@ The second fixture was produced by an unmodified qbit Core release binary; see
 - [ ] Run `pnpm test:mv3` with Chrome for Testing. The host must validate an
       external clean-consumer `node_modules/@qbit-oss/pqc` source before the
       smoke reports `artifactSource: installed-packed-tarball`.
-- [ ] Run `pnpm smoke:bundlers` with Chrome for Testing: the default `init()`
-      and the static-factory recipe must pass in every bundler it builds with.
+- [ ] Run `pnpm smoke:bundlers` with Chrome for Testing: the default `init()`,
+      the static-factory recipe and the external-wasm recipe must pass in
+      every bundler it builds with.
 - [ ] Verify the working tree is clean after all checks.
 
 ## Publishing Gate
 
-Publishing runs in `.github/workflows/publish.yml` when a tag is pushed; see
-"Publishing" in [RELEASING.md](RELEASING.md). Its `build` job reruns the
-candidate checks the tarball depends on, including the `prepublishOnly` guard,
-which refuses package files that differ from the tagged commit, and packs the
-tarball. Its `smoke` job reruns the vendored C comparison with upstream, the
-reproducible WASM rebuild and the fresh-consumer smoke. Its `publish` job,
-which runs only once a required reviewer approves it, publishes exactly the
-tarball `build` packed.
+Publishing runs in `.github/workflows/publish.yml` when a tag is pushed. Its
+`publish` job, which starts only once a required reviewer approves it,
+publishes exactly the tarball its `build` job packed; "Publishing" in
+[RELEASING.md](RELEASING.md) describes what each job checks.
 
-- [ ] Configure the package's npm trusted publisher: repository
-      `Qbit-Org/qbit-pqc`, workflow `publish.yml`, environment `npm`, with
-      npm publish allowed. The first publish uses a token instead; see
-      "First publish" in RELEASING.md.
+- [ ] Configure the package's npm trusted publisher as step 5 of "First
+      publish" in RELEASING.md describes. The first publish uses a token
+      instead.
 - [ ] Protect the `npm` environment with required reviewers who cannot
       approve their own tag's publish, and restrict who can push `v*` tags.
 - [ ] Publish only by pushing the tag, never with a local `npm publish`.

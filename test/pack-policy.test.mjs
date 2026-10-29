@@ -29,13 +29,11 @@ describe('npm pack JSON compatibility', () => {
 
   it('rejects missing, extra, and mismatched package results', () => {
     expect(() => selectPackManifest([], '@qbit-oss/pqc')).toThrow(/expected one npm pack result/)
-    expect(() => selectPackManifest([packManifest, packManifest], '@qbit-oss/pqc')).toThrow(
+    expect(() => selectPackManifest([packManifest, packManifest], '@qbit-oss/pqc')).toThrow(/received 2/)
+    expect(() => selectPackManifest({ other: packManifest }, '@qbit-oss/pqc')).toThrow(/received 0/)
+    expect(() => selectPackManifest({ '@qbit-oss/pqc': packManifest, other: packManifest }, '@qbit-oss/pqc')).toThrow(
       /received 2/
     )
-    expect(() => selectPackManifest({ other: packManifest }, '@qbit-oss/pqc')).toThrow(/received 0/)
-    expect(() =>
-      selectPackManifest({ '@qbit-oss/pqc': packManifest, other: packManifest }, '@qbit-oss/pqc')
-    ).toThrow(/received 2/)
     expect(() => selectPackManifest([{ ...packManifest, name: 'other' }], '@qbit-oss/pqc')).toThrow(
       /did not describe @qbit-oss\/pqc/
     )
@@ -62,9 +60,7 @@ describe('npm package contents policy', () => {
   it('requires the vendored upstream blob manifest', () => {
     const paths = REQUIRED_FILES.filter(path => path !== 'vendor/libbitcoinpqc-qbit/MANIFEST')
 
-    expect(() => validatePackFiles(paths)).toThrow(
-      /missing required files:\n  vendor\/libbitcoinpqc-qbit\/MANIFEST/
-    )
+    expect(() => validatePackFiles(paths)).toThrow(/missing required files:\n  vendor\/libbitcoinpqc-qbit\/MANIFEST/)
   })
 
   it('requires the wasm factory declaration and allows no other file under types/', () => {
@@ -77,12 +73,27 @@ describe('npm package contents policy', () => {
   })
 
   it('rejects repository-only and unrecognized files', () => {
-    expect(() =>
-      validatePackFiles([...REQUIRED_FILES, 'scripts/build-wasm.sh', 'notes.txt'])
-    ).toThrow(/forbidden files:\n  scripts\/build-wasm\.sh/)
+    expect(() => validatePackFiles([...REQUIRED_FILES, 'scripts/build-wasm.sh', 'notes.txt'])).toThrow(
+      /forbidden files:\n  scripts\/build-wasm\.sh/
+    )
     expect(() => validatePackFiles([...REQUIRED_FILES, 'notes.txt'])).toThrow(
       /files outside the release allowlist:\n  notes\.txt/
     )
+  })
+
+  it('requires the tsup output of every entry and of lib/core.mjs', () => {
+    for (const output of [
+      'lib/index.mjs',
+      'lib/external-wasm.mjs',
+      'lib/external-wasm.d.mts',
+      'lib/core.mjs',
+      'lib/worker.mjs',
+      'lib/worker-handler.mjs',
+    ]) {
+      const paths = REQUIRED_FILES.filter(path => path !== output)
+
+      expect(() => validatePackFiles(paths)).toThrow(`missing required files:\n  ${output}`)
+    }
   })
 
   it('rejects lib/ files that tsup does not build', () => {
@@ -98,9 +109,7 @@ describe('npm package contents policy', () => {
     expect(() => validatePackFiles([...REQUIRED_FILES, 'docs/../scripts/check-publish.mjs'])).toThrow(
       /unsafe package paths/
     )
-    expect(() => validatePackFiles([...REQUIRED_FILES, 'docs\\publish.mjs'])).toThrow(
-      /unsafe package paths/
-    )
+    expect(() => validatePackFiles([...REQUIRED_FILES, 'docs\\publish.mjs'])).toThrow(/unsafe package paths/)
   })
 })
 
@@ -173,26 +182,22 @@ describe('real tarball listing normalization', () => {
   it('strips npm tarballs package root and ignores directory entries', () => {
     expect(
       packagePathsFromTarListing(
-        ['package/', 'package/docs/', 'package/README.md', 'package/docs/derivation.md', ''].join(
-          '\n'
-        )
+        ['package/', 'package/docs/', 'package/README.md', 'package/docs/derivation.md', ''].join('\n')
       )
     ).toEqual(['README.md', 'docs/derivation.md'])
   })
 
   it('rejects entries outside npm tarballs package root and empty archives', () => {
     expect(() => packagePathsFromTarListing('README.md\n')).toThrow(/rooted at package/)
-    expect(() => packagePathsFromTarListing('package/\npackage/docs/\n')).toThrow(
-      /did not contain package files/
-    )
+    expect(() => packagePathsFromTarListing('package/\npackage/docs/\n')).toThrow(/did not contain package files/)
   })
 
   it('applies the closed package policy to the exact archive listing', () => {
     const listing = REQUIRED_FILES.map(path => `package/${path}`).join('\n')
     expect(validatePackedTarballListing(listing)).toEqual([...REQUIRED_FILES].sort())
-    expect(() =>
-      validatePackedTarballListing(`${listing}\npackage/scripts/postpack.mjs\n`)
-    ).toThrow(/forbidden files:\n  scripts\/postpack\.mjs/)
+    expect(() => validatePackedTarballListing(`${listing}\npackage/scripts/postpack.mjs\n`)).toThrow(
+      /forbidden files:\n  scripts\/postpack\.mjs/
+    )
     expect(() => validatePackedTarballListing(`${listing}\npackage/postpack.txt\n`)).toThrow(
       /files outside the release allowlist:\n  postpack\.txt/
     )

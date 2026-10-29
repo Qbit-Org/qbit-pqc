@@ -30,7 +30,7 @@ function sha256(path) {
 
 const args = parseArgs(process.argv.slice(2))
 const artifacts = ['pqc.mjs', 'pqc.wasm']
-const lines = artifacts.map((artifact) => `${sha256(join(args.dir, artifact))}  ${artifact}`)
+const lines = artifacts.map(artifact => `${sha256(join(args.dir, artifact))}  ${artifact}`)
 const sumsPath = join(args.dir, 'SHA256SUMS')
 
 if (args.write) {

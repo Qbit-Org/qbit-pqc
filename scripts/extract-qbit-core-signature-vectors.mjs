@@ -99,7 +99,8 @@ export function buildFixture(sourceBytes) {
   requireAccepted(defaultSighash)
   requireAccepted(sighashNone)
   const dataSigAdd = defaultSighash.dataSigAdd
-  if (dataSigAdd === null || typeof dataSigAdd !== 'object') throw new Error('single_key_default_sighash has no dataSigAdd')
+  if (dataSigAdd === null || typeof dataSigAdd !== 'object')
+    throw new Error('single_key_default_sighash has no dataSigAdd')
   requireFillsInProvenance(defaultSighash.dataSigProvenance)
 
   const keys = {
