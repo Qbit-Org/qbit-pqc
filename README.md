@@ -134,9 +134,9 @@ const pqc = await init({
 })
 ```
 
-Without `locateFile`, the static-factory recipe
-`init({ createModule: createPqcModule })` compiles the embedded copy, so the
-extension need not ship `pqc.wasm`. Call `init()` at the top level of the
+With `createModule`, `moduleUrl` is ignored. Without `locateFile`, the
+static-factory recipe `init({ createModule: createPqcModule })` compiles the
+embedded copy, so the extension need not ship `pqc.wasm`. Call `init()` at the top level of the
 service worker, because the client does not survive a restart, and sign off
 its thread, because each signature blocks it for about 0.6 s.
 [Service worker details](docs/loading.md#service-workers) explain both.
