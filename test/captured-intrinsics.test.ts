@@ -11,6 +11,7 @@ import {
   PqcError,
   type PqcClient,
   type PqcDerivedKey,
+  type PqcDerivedKeyPair,
   type PqcKeyPair,
   type PqcSignWithStatsResult,
   type PqcWasmModule,
@@ -570,6 +571,37 @@ describe('intrinsics used after user code can run are captured at module load', 
       )
 
       expect(expectClean(outcome)).toEqual(reference.derivePQCKey(seed, 2, 1, 3))
+    })
+
+    it('derived-key aliases do not depend on Object.defineProperties or Object.prototype', async () => {
+      await freshVictim()
+      const leaf = syntheticEntropy(0x71).slice(0, 32)
+      let patchCalls = 0
+      const outcome = underTrap(
+        combine(
+          () =>
+            patchProperty(Object, 'defineProperties', () => {
+              patchCalls += 1
+              throw new Error('patched Object.defineProperties')
+            }),
+          // An inherited `set` would give an alias descriptor with a prototype
+          // a setter that sees every assignment.
+          () =>
+            patchAccessor(Object.prototype, 'set', {
+              get: () => {
+                patchCalls += 1
+                return () => undefined
+              },
+            })
+        ),
+        trap => victim.deriveP2mrDescriptorKey(trap(leaf), 7)
+      )
+
+      const derived = expectClean<PqcDerivedKeyPair>(outcome)
+      expect(patchCalls).toBe(0)
+      expect(derived).toEqual(reference.deriveP2mrDescriptorKey(leaf, 7))
+      expect(derived.secretKey).toBe(derived.sk64)
+      expect(Object.getOwnPropertyDescriptor(derived, 'secretKey')?.set).toBeUndefined()
     })
 
     it('derivePQCKey still rejects non-integer path fields after Number is patched', async () => {

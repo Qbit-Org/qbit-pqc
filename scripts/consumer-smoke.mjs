@@ -55,8 +55,18 @@ for (const file of fixtureFiles) {
   assert.equal(resolved, join(fixturesDir, file), `@qbit-oss/pqc/fixtures/${file} resolves`)
   log('resolved fixture:', resolved)
 }
-for (const outside of ['fixtures/../package.json', 'fixtures/../lib/index.mjs', 'fixtures/%2e%2e/package.json']) {
-  assert.throws(() => require.resolve(`@qbit-oss/pqc/${outside}`), `@qbit-oss/pqc/${outside} is not exported`)
+// Node rejects a pattern match with a "." or ".." segment, encoded or not, and
+// any path no export names, so a widened pattern fails here
+for (const [outside, code] of [
+  ['fixtures/../package.json', 'ERR_INVALID_MODULE_SPECIFIER'],
+  ['fixtures/../lib/index.mjs', 'ERR_INVALID_MODULE_SPECIFIER'],
+  ['fixtures/%2e%2e/package.json', 'ERR_INVALID_MODULE_SPECIFIER'],
+  ['fixtures', 'ERR_PACKAGE_PATH_NOT_EXPORTED'],
+  ['src/index.ts', 'ERR_PACKAGE_PATH_NOT_EXPORTED'],
+  ['vendor/libbitcoinpqc-qbit/UPSTREAM.md', 'ERR_PACKAGE_PATH_NOT_EXPORTED'],
+]) {
+  assert.throws(() => require.resolve(`@qbit-oss/pqc/${outside}`), { code }, `@qbit-oss/pqc/${outside} is not exported`)
+  log('not exported:    ', `@qbit-oss/pqc/${outside}`, code)
 }
 const goldenSidecar = readFileSync(require.resolve('@qbit-oss/pqc/fixtures/slh-dsa-golden.json.sha256'), 'utf8')
 const [goldenSum, goldenName] = goldenSidecar.trim().split(/\s+/)
@@ -120,15 +130,27 @@ assert.deepEqual(Array.from(d1.pk32), Array.from(d2.pk32), 'derive deterministic
 assert.deepEqual(Array.from(d1.sk64), Array.from(d2.sk64), 'derive deterministic (sk)')
 const dsig = pqc.sign(d1.sk64, msg)
 assert.equal(pqc.verify(d1.pk32, msg, dsig), true, 'derived key signs+verifies')
-// Derived keys carry keygen's names too, for the same arrays: zeroing sk64, as
-// wallet code does after use, leaves no copy behind under secretKey
-for (const derived of [d1, derivePQCKey(seed, 0, 0, 5), deriveP2mrDescriptorKey(seed, 5)]) {
-  assert.equal(derived.publicKey, derived.pk32, 'derived publicKey is pk32')
-  assert.equal(derived.secretKey, derived.sk64, 'derived secretKey is sk64')
-  assert.deepEqual(Array.from(derived.pk32), Array.from(d1.pk32), 'client, named export and P2MR derive one key')
+// Derived keys also read their keys under keygen's names, through
+// non-enumerable getters over the same arrays: the result still enumerates and
+// serializes as { pk32, sk64 }, and zeroing pk32 and sk64, as wallet code does
+// after use, leaves no copy behind under publicKey or secretKey
+for (const [name, derive] of [
+  ['client derivePQCKey', () => pqc.derivePQCKey(seed, 0, 0, 5)],
+  ['named derivePQCKey', () => derivePQCKey(seed, 0, 0, 5)],
+  ['client deriveP2mrDescriptorKey', () => pqc.deriveP2mrDescriptorKey(seed, 5)],
+  ['named deriveP2mrDescriptorKey', () => deriveP2mrDescriptorKey(seed, 5)],
+]) {
+  const derived = derive()
+  assert.equal(derived.publicKey, derived.pk32, `${name}: publicKey is pk32`)
+  assert.equal(derived.secretKey, derived.sk64, `${name}: secretKey is sk64`)
+  assert.deepEqual(Object.keys(derived), ['pk32', 'sk64'], `${name}: enumerates as { pk32, sk64 }`)
+  assert.equal(JSON.stringify(derived), JSON.stringify({ pk32: derived.pk32, sk64: derived.sk64 }), `${name}: JSON`)
+  assert.deepEqual(Array.from(derived.pk32), Array.from(d1.pk32), `${name}: derives the same key`)
+  derived.pk32.fill(0)
+  derived.sk64.fill(0)
+  assert.deepEqual(derived.publicKey, new Uint8Array(constants.PK_SIZE), `${name}: zeroing pk32 zeroes publicKey`)
+  assert.deepEqual(derived.secretKey, new Uint8Array(constants.SK_SIZE), `${name}: zeroing sk64 zeroes secretKey`)
 }
-d2.sk64.fill(0)
-assert.deepEqual(Array.from(d2.secretKey), new Array(constants.SK_SIZE).fill(0), 'zeroing sk64 zeroes secretKey')
 assert.throws(() => pqc.derivePQCKey(new Uint8Array(0), 0, 0, 0), 'empty seed rejected')
 
 // (8) explicit MV3-style init via the subpath factory export
@@ -137,11 +159,10 @@ const pqc2 = await init({ createModule })
 const e2 = pqc2.keygen(entropy)
 assert.deepEqual(Array.from(e2.publicKey), Array.from(publicKey), 'MV3-factory init keygen matches')
 
-// (9) a JSON fixture imports by name, and the qbit Core signatures it records
+// (9) a JSON fixture loads by name with require(), the form the docs recommend
+// for every supported Node version, and the qbit Core signatures it records
 // verify with the installed package
-const { default: signatureVectors } = await import('@qbit-oss/pqc/fixtures/qbit-core-signature-vectors.json', {
-  with: { type: 'json' },
-})
+const signatureVectors = require('@qbit-oss/pqc/fixtures/qbit-core-signature-vectors.json')
 assert.ok(signatureVectors.accept.length > 0, 'signature fixture has accept vectors')
 for (const vector of signatureVectors.accept) {
   const hex = value => Buffer.from(value, 'hex')

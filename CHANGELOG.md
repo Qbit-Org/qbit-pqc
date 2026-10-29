@@ -23,15 +23,17 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
   the only ones documented to carry stats, keep them, and maintainers chose to
   ship this in a patch release.
 - `derivePQCKey` and `deriveP2mrDescriptorKey`, on the client and as named
-  exports, also return the key pair as `publicKey` and `secretKey`, the names
-  `keygen` uses. They are the same `Uint8Array`s as `pk32` and `sk64`, which
-  stay, not copies, so zeroing either name zeroes both. Both functions now
-  return the new type `PqcDerivedKeyPair`, which extends the unchanged
-  `PqcDerivedKey` with the two fields, so code that builds its own
-  `PqcDerivedKey` keeps type-checking. Code that implements `PqcClient` itself,
-  such as a fake client, must return the two fields from its derive methods.
-  Code that checks the exact set of a derived key's properties, such as deep
-  equality against `{ pk32, sk64 }`, now sees two more.
+  exports, also read the key pair as `publicKey` and `secretKey`, the names
+  `keygen` uses: non-enumerable getters, with no setter, that return the
+  result's current `pk32` and `sk64`, which stay. They are the same
+  `Uint8Array`s, not copies, so zeroing either name zeroes both. The result's
+  runtime shape, enumeration and serialization are unchanged from 0.1.0:
+  `Object.keys`, spread, `JSON.stringify` and deep equality see only
+  `{ pk32, sk64 }`. Both functions now return the new type
+  `PqcDerivedKeyPair`, which extends the unchanged `PqcDerivedKey` with the
+  two read-only fields. The only incompatibility is TypeScript code that
+  implements `PqcClient` itself, such as a fake client, whose derive methods
+  must now return the aliases.
 - New `./fixtures/*` export: the conformance fixtures the package already
   ships resolve by name, such as
   `@qbit-oss/pqc/fixtures/qbit-core-signature-vectors.json` and the

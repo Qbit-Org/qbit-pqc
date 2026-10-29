@@ -70,12 +70,14 @@ from `0` to `0x7fffffff`. `derivePQCKey` is the low-level HKDF primitive
 underneath; any other seed or HKDF tuple derives a key Core never generates.
 The [derivation contract](docs/derivation.md) gives the full rules and the
 fixture vectors in `fixtures/qbit-core-derivation.json`. The result holds the
-keys as `pk32` and `sk64`, and as `publicKey` and `secretKey`, the names
-`keygen` uses, for the same arrays: in
-`const { publicKey, secretKey } = deriveP2mrDescriptorKey(leafPrivateKey, index)`,
-zeroing `secretKey` zeroes `sk64` too. The fixtures ship in the package and
-load by name, as in
-`import vectors from '@qbit-oss/pqc/fixtures/qbit-core-derivation.json' with { type: 'json' }`.
+keys as `pk32` and `sk64`; `publicKey` and `secretKey`, the names `keygen`
+uses, are getters over the same arrays, so in
+`const { publicKey, secretKey } = deriveP2mrDescriptorKey(leafPrivateKey, index)`
+zeroing `secretKey` zeroes `sk64` too, and the result still enumerates and
+serializes as `{ pk32, sk64 }`. The fixtures ship in the package as public,
+semver-covered API and load by name on every supported Node version with
+`createRequire(import.meta.url)('@qbit-oss/pqc/fixtures/qbit-core-derivation.json')`;
+bundlers and newer Node versions also accept `import ... with { type: 'json' }`.
 
 ## API
 

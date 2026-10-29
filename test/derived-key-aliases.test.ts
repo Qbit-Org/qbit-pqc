@@ -1,3 +1,5 @@
+import { deepStrictEqual } from 'node:assert'
+
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -9,9 +11,11 @@ import {
   type PqcDerivedKeyPair,
 } from '../src/index'
 
-// A derived key's publicKey and secretKey are keygen's names for pk32 and sk64.
-// They must be the same arrays, not copies: wallet code zeroes pk32 and sk64
-// after use, and a copy under the other name would keep the secret key.
+// A derived key's publicKey and secretKey are keygen's names for pk32 and sk64:
+// non-enumerable getters over the same arrays, not copies. Wallet code zeroes
+// pk32 and sk64 after use, so a copy under the other name would keep the secret
+// key, and code that enumerates, compares or serializes a derived key must see
+// the 0.1.0 shape, { pk32, sk64 }, with the secret key once.
 
 // A synthetic secp256k1 leaf key: nonzero and below the group order.
 const LEAF = Uint8Array.from({ length: 32 }, (_, i) => i + 1)
@@ -30,22 +34,28 @@ describe('derived key aliases', () => {
     ['deriveP2mrDescriptorKey', () => deriveP2mrDescriptorKey(LEAF, 7)],
   ]
 
-  it.each(derivations)('%s returns publicKey and secretKey as pk32 and sk64 themselves', (_name, derive) => {
+  it.each(derivations)('%s reads publicKey and secretKey as pk32 and sk64 themselves', (_name, derive) => {
     const derived = derive()
     expect(derived.publicKey).toBe(derived.pk32)
     expect(derived.secretKey).toBe(derived.sk64)
-    expect(Object.keys(derived)).toEqual(['pk32', 'sk64', 'publicKey', 'secretKey'])
-    for (const [alias, original] of [
-      ['publicKey', derived.pk32],
-      ['secretKey', derived.sk64],
-    ] as const) {
-      expect(Object.getOwnPropertyDescriptor(derived, alias)).toEqual({
-        value: original,
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      })
+    for (const alias of ['publicKey', 'secretKey']) {
+      const descriptor = Object.getOwnPropertyDescriptor(derived, alias)
+      expect(descriptor?.get).toBeTypeOf('function')
+      expect(descriptor?.set).toBeUndefined()
+      expect(descriptor?.enumerable).toBe(false)
     }
+  })
+
+  it.each(derivations)('%s enumerates, compares and serializes as { pk32, sk64 }', (_name, derive) => {
+    const derived = derive()
+    const { pk32, sk64 } = derived
+    expect(Object.keys(derived)).toEqual(['pk32', 'sk64'])
+    expect(Object.keys({ ...derived })).toEqual(['pk32', 'sk64'])
+    expect(Object.keys(structuredClone(derived))).toEqual(['pk32', 'sk64'])
+    expect(JSON.stringify(derived)).toBe(JSON.stringify({ pk32, sk64 }))
+    expect(derived).toEqual({ pk32, sk64 })
+    expect(derived).toStrictEqual({ pk32, sk64 })
+    deepStrictEqual(derived, { pk32, sk64 })
   })
 
   it.each(derivations)('%s: zeroing pk32 and sk64 after use zeroes the aliases', (_name, derive) => {
@@ -59,6 +69,29 @@ describe('derived key aliases', () => {
     sk64.fill(0)
     expect(derived.publicKey).toEqual(new Uint8Array(constants.PK_SIZE))
     expect(derived.secretKey).toEqual(new Uint8Array(constants.SK_SIZE))
+  })
+
+  it.each(derivations)('%s: the aliases follow a reassigned or deleted pk32 and sk64', (_name, derive) => {
+    const derived = derive()
+    const replacement = new Uint8Array(constants.SK_SIZE)
+    derived.sk64 = replacement
+    expect(derived.secretKey).toBe(replacement)
+
+    const mutable = derived as Partial<PqcDerivedKeyPair>
+    delete mutable.pk32
+    expect(derived.publicKey).toBeUndefined()
+  })
+
+  it.each(derivations)('%s: assigning to an alias throws and changes nothing', (_name, derive) => {
+    const derived = derive()
+    const { sk64 } = derived
+    const writable = derived as { secretKey: Uint8Array }
+    // Test modules are strict mode, where assigning to a getter-only property throws.
+    expect(() => {
+      writable.secretKey = new Uint8Array(constants.SK_SIZE)
+    }).toThrow(TypeError)
+    expect(derived.sk64).toBe(sk64)
+    expect(derived.secretKey).toBe(sk64)
   })
 
   it('derives the same key through every entry point', () => {

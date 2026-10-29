@@ -23,7 +23,11 @@ const IntrinsicObjectPrototype = Object.prototype
 const { from: arrayFrom } = Array
 const { ceil: mathCeil, floor: mathFloor } = Math
 const { isFinite: numberIsFinite, isInteger: numberIsInteger } = Number
-const { getOwnPropertyDescriptor: objectGetOwnPropertyDescriptor, getPrototypeOf: objectGetPrototypeOf } = Object
+const {
+  defineProperties: objectDefineProperties,
+  getOwnPropertyDescriptor: objectGetOwnPropertyDescriptor,
+  getPrototypeOf: objectGetPrototypeOf,
+} = Object
 const { ownKeys: reflectOwnKeys } = Reflect
 const objectHasOwn = Function.prototype.call.bind(Object.prototype.hasOwnProperty) as (
   object: object,
@@ -287,7 +291,7 @@ export interface PqcKeyPair {
  * A derived key pair: the pair `keygen` gives for 128 bytes of entropy derived
  * with HKDF-SHA256, as qbit Core derives them. {@link deriveP2mrDescriptorKey}
  * and {@link derivePQCKey} return it as a {@link PqcDerivedKeyPair}, which also
- * holds the keys under `keygen`'s names.
+ * reads the keys under `keygen`'s names.
  */
 export interface PqcDerivedKey {
   /** The public key, `constants.PK_SIZE` (32) bytes. */
@@ -298,19 +302,43 @@ export interface PqcDerivedKey {
 
 /**
  * What {@link deriveP2mrDescriptorKey} and {@link derivePQCKey} return: a
- * {@link PqcDerivedKey} that also holds its keys under the names
- * {@link PqcKeyPair} uses. `publicKey` and `secretKey` are the same arrays as
- * `pk32` and `sk64`, not copies, so zeroing either name zeroes both.
+ * {@link PqcDerivedKey} that also reads its keys under the names
+ * {@link PqcKeyPair} uses. `publicKey` and `secretKey` are non-enumerable
+ * getters, with no setter, that return the object's current `pk32` and `sk64`:
+ * the same arrays, not copies, so zeroing either name zeroes both, and they
+ * follow a reassigned `pk32` or `sk64`. `Object.keys`, spread,
+ * `structuredClone` and `JSON.stringify` see only `pk32` and `sk64`, as in
+ * 0.1.0, so the secret key is never copied or serialized twice.
  */
 export interface PqcDerivedKeyPair extends PqcDerivedKey {
-  /** The same Uint8Array as `pk32`, under {@link PqcKeyPair}'s name. */
-  publicKey: Uint8Array
+  /** The object's current `pk32`, under {@link PqcKeyPair}'s name. */
+  readonly publicKey: Uint8Array
   /**
-   * The same Uint8Array as `sk64`, under {@link PqcKeyPair}'s name: zeroing
-   * either zeroes both.
+   * The object's current `sk64`, under {@link PqcKeyPair}'s name: the same
+   * Uint8Array, so zeroing either zeroes both.
    */
-  secretKey: Uint8Array
+  readonly secretKey: Uint8Array
 }
+
+// The aliases on every derived key. The descriptors have no prototype, so no
+// `value`, `set` or `enumerable` that other code adds to Object.prototype
+// reaches defineProperties: the aliases stay non-enumerable getters.
+const DERIVED_KEY_ALIASES: PropertyDescriptorMap = withoutPrototype({
+  publicKey: withoutPrototype({
+    get(this: PqcDerivedKey): Uint8Array {
+      return this.pk32
+    },
+    enumerable: false,
+    configurable: true,
+  }),
+  secretKey: withoutPrototype({
+    get(this: PqcDerivedKey): Uint8Array {
+      return this.sk64
+    },
+    enumerable: false,
+    configurable: true,
+  }),
+})
 
 /**
  * The native grind statistics of one signing call, from
@@ -1476,14 +1504,10 @@ function deriveKeyFromSeed(
   }
   try {
     const pair = runKeygen(entropy)
-    // The aliases hold the same arrays, so a caller that zeroes one name
-    // leaves no copy of the secret key behind under the other.
-    return {
-      pk32: pair.publicKey,
-      sk64: pair.secretKey,
-      publicKey: pair.publicKey,
-      secretKey: pair.secretKey,
-    }
+    return objectDefineProperties(
+      { pk32: pair.publicKey, sk64: pair.secretKey },
+      DERIVED_KEY_ALIASES
+    ) as PqcDerivedKeyPair
   } finally {
     typedArrayFill(entropy, 0)
   }

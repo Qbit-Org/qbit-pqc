@@ -17,4 +17,6 @@ const derived: PqcDerivedKeyPair = client.deriveP2mrDescriptorKey(sk64.subarray(
 const secretKey: Uint8Array = derived.secretKey
 const publicKey: Uint8Array = derivePQCKey(sk64, 0, 0, 0).publicKey
 const asBefore: PqcDerivedKey = derived
+// @ts-expect-error The aliases are getters with no setter.
+derived.secretKey = sk64
 void [secretKey, publicKey, asBefore]
