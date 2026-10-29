@@ -135,9 +135,13 @@ describe('publish workflow', () => {
     const commands = [...runCommands(build), ...runCommands(smoke)]
     const verify = runCommands(jobs(ci).verify)
     expect(verify).toContain('pnpm smoke:consumer')
+    // Formatting is not a tarball integrity gate, so publish.yml need not
+    // rerun CI's format check.
+    expect(verify).toContain('pnpm format:check')
+    const gates = verify.filter(command => command !== 'pnpm format:check')
     // Verbatim, or with options added, as build's install adds engine-strict.
     expect(
-      verify.filter(command => !commands.some(run => run === command || run.startsWith(`${command} --`)))
+      gates.filter(command => !commands.some(run => run === command || run.startsWith(`${command} --`)))
     ).toEqual([])
   })
 

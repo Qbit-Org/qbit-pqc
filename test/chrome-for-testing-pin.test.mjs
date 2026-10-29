@@ -109,14 +109,39 @@ describe('CI supply-chain pins', () => {
     expect(packageJson.devDependencies['@puppeteer/browsers']).toMatch(/^\d+\.\d+\.\d+$/)
   })
 
-  it('runs Node that satisfies @puppeteer/browsers engines (>=22.12)', () => {
-    const versions = [...ciYaml.matchAll(/node-version:\s*['"]?([^'"\s#]+)/g)].map(m => m[1])
-    expect(versions.length).toBeGreaterThan(0)
-    for (const version of versions) {
-      // A bare major resolves to the newest release of that line on setup-node.
-      const [major, minor = Infinity] = version.split('.').map(Number)
-      expect(major > 22 || (major === 22 && minor >= 12), version).toBe(true)
+  it('runs Node that satisfies @puppeteer/browsers engines (>=22.12) in every job that installs Chrome', () => {
+    const browserJobs = Object.values(workflowJobs(ciYaml)).filter(job =>
+      runCommands(job).some(command => /\bbrowsers install\b/.test(command))
+    )
+    expect(browserJobs.length).toBeGreaterThan(0)
+    for (const job of browserJobs) {
+      const versions = [...job.matchAll(/node-version:\s*['"]?([^'"\s#]+)/g)].map(m => m[1])
+      expect(versions.length).toBeGreaterThan(0)
+      for (const version of versions) {
+        // A bare major resolves to the newest release of that line on setup-node.
+        const [major, minor = Infinity] = version.split('.').map(Number)
+        expect(major > 22 || (major === 22 && minor >= 12), version).toBe(true)
+      }
     }
+  })
+
+  // node-matrix installs no browser, so it can go below the @puppeteer/browsers
+  // engines, down to the floors that package.json engines accepts.
+  it('runs every package.json engines floor in the node-matrix job', () => {
+    const job = workflowJobs(ciYaml)['node-matrix']
+    expect(job).toBeDefined()
+    const floors = packageJson.engines.node
+      .split('||')
+      .map(range => /^\s*(?:\^|>=)(\d+\.\d+\.\d+)\s*$/.exec(range)?.[1])
+    expect(floors.length).toBeGreaterThan(0)
+    expect(floors).not.toContain(undefined)
+    const matrix = /^ +node-version: \[(.*)\]$/m
+      .exec(job)?.[1]
+      .split(',')
+      .map(version => version.trim().replace(/^(['"])(.*)\1$/, '$2'))
+    expect(matrix).toEqual(expect.arrayContaining(floors))
+    // setup-node must install the matrix entry, not a fixed version.
+    expect(job).toMatch(/^ +node-version: \$\{\{ matrix\.node-version \}\}$/m)
   })
 
   it('keeps the integrity gates in a lockfile-only job without a browser download', () => {

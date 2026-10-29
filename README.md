@@ -319,45 +319,9 @@ The vendored C inventory is pinned to
 See `vendor/libbitcoinpqc-qbit/UPSTREAM.md` for the copied inventory and
 license notes.
 
-## Build
+## Development
 
-```sh
-pnpm build:wasm
-pnpm check:wasm
-pnpm check:wasm:repro
-pnpm build
-pnpm smoke:load
-pnpm test
-pnpm typecheck
-pnpm test:mv3
-pnpm smoke:bundlers
-pnpm pack:check
-pnpm smoke:consumer
-```
-
-The committed SLH-DSA golden fixture is in `fixtures/slh-dsa-golden.json`, with
-a SHA-256 sidecar in `fixtures/slh-dsa-golden.json.sha256`. The fixture's
-`source` block records its provenance: the upstream repository and commit, the
-Rust test file path, and that file's git blob and SHA-256.
-
-`build:wasm` uses this pinned Emscripten Docker image, `emscripten/emsdk:4.0.10`,
-by default:
-
-```text
-emscripten/emsdk@sha256:90b757eb11fa9a0e3ce4d2d9f76d932a56018e4accc37b5a28b2783751e60eb7
-```
-
-For local-only development, set `USE_LOCAL_EMCC=1` to use `emcc` from `PATH`.
-`pnpm check:wasm:repro` refuses to run with `USE_LOCAL_EMCC=1`, `EMSDK_IMAGE`
-or `OUT_DIR` set, because its pass is meant to show that the pinned image
-rebuilds the committed files; add `QBIT_PQC_REPRO_ALLOW_OVERRIDES=1` to run it
-with them anyway. The checked-in `wasm/SHA256SUMS` file records the expected
-`pqc.mjs` and `pqc.wasm` hashes; the package exports it as
-`@qbit-oss/pqc/wasm/SHA256SUMS`.
-
-The npm tarball keeps the TypeScript source, public fixtures, and pinned
-vendored C inventory for auditability while excluding repository-only build,
-test, and CI files. See [`RELEASE.md`](RELEASE.md) for the enforced package
-policy and release checklist.
-Versioning, release branches and tags are described in
-[`RELEASING.md`](RELEASING.md); changes are listed in [`CHANGELOG.md`](CHANGELOG.md).
+Building and testing from a clone of the repository is described in
+[`CONTRIBUTING.md`](CONTRIBUTING.md). [`RELEASE.md`](RELEASE.md) is the release
+checklist, [`RELEASING.md`](RELEASING.md) covers versioning, branches and tags,
+and [`CHANGELOG.md`](CHANGELOG.md) lists the changes.
