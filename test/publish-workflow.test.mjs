@@ -149,6 +149,17 @@ describe('publish workflow', () => {
     )
   })
 
+  // `pnpm verify` is the offline subset of CI's verify job, in CI's order
+  // (CONTRIBUTING.md): everything but the install, the vendored-source
+  // comparison with the upstream fetch (MANIFEST only) and the Docker rebuild.
+  it("keeps pnpm verify on CI's verify job", () => {
+    const { scripts } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+    const offline = runCommands(jobs(ci).verify)
+      .filter(command => command !== 'pnpm install --frozen-lockfile' && command !== 'pnpm check:wasm:repro')
+      .map(command => (/^pnpm check:vendor --upstream /m.test(command) ? 'pnpm check:vendor' : command))
+    expect(scripts.verify.split(' && ')).toEqual(offline)
+  })
+
   it('pins every action to a full commit SHA, and an action CI uses to its CI pin', () => {
     expect(actionRefs(publish).length).toBeGreaterThan(0)
     for (const { ref, comment } of [...actionRefs(ci), ...actionRefs(publish)]) {

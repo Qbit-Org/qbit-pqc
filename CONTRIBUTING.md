@@ -7,7 +7,8 @@ pull request.
 
 ## Prerequisites
 
-- Node.js: the version in `.nvmrc`, which CI's required jobs run.
+- Node.js: the version in `.nvmrc`, which CI's required jobs read
+  (`node-version-file`).
   `package.json` `engines` accepts `^20.19.0 || >=22.12.0`, and CI's
   `node-matrix` job builds and tests on both floors and on current lines.
   `pnpm test:mv3` and `pnpm smoke:bundlers` need Node.js 22.12 or later, which
