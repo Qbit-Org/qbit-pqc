@@ -9,12 +9,12 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-// The digest SHA256SUMS in `dir` (a path or a URL, with or without a trailing
-// slash) pins for `name`, after checking that the file in `dir` has it. Lines
+// The digest SHA256SUMS in `dir` (a path, a file: URL string or a URL, with or
+// without a trailing slash) pins for `name`, after checking that the file in `dir` has it. Lines
 // may be in sha256sum's text (' ') or binary ('*') mode, with LF or CRLF
 // endings.
 export function pinnedSha256(dir, name) {
-  const base = new URL(typeof dir === 'string' ? pathToFileURL(dir) : dir)
+  const base = new URL(typeof dir === 'string' && !/^file:/i.test(dir) ? pathToFileURL(dir) : dir)
   if (!base.pathname.endsWith('/')) {
     base.pathname += '/'
   }

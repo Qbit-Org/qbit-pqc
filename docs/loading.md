@@ -168,7 +168,11 @@ where the loader would look:
   `@qbit-oss/pqc/wasm/pqc.mjs`, is resolved with `import.meta.resolve`
   (browsers, Node), which applies package exports and import maps. Where that
   is missing, as in a bundle that strips it, `init()` rejects and asks for an
-  absolute URL.
+  absolute URL. Import maps and HTTP redirects that `import()` applies to a
+  URL or path `moduleUrl` are not followed, so the `pqc.wasm` read is beside
+  the URL as written. In Node, a symlinked loader is followed to its real
+  file, as Node's resolver does, unless `--preserve-symlinks` or
+  `NODE_PRESERVE_SYMLINKS=1` is set.
 - With `createModule`, `locateFile` receives the package's `wasm/` directory
   as `prefix`, not the directory of wherever your copy of the loader lives.
   The two are the same when the factory is `@qbit-oss/pqc/wasm/pqc.mjs` as

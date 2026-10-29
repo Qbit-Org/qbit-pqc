@@ -712,6 +712,8 @@ describe('the directory of the moduleUrl loader', () => {
 
     expect(loaderDirectory(pathToFileURL(loader))).toBe(loaderDir)
     expect(loaderDirectory(pathToFileURL(loader).href)).toBe(loaderDir)
+    // A single-slash file: URL is absolute, not a bare specifier.
+    expect(loaderDirectory(`file:${loader}`)).toBe(loaderDir)
     expect(loaderDirectory('data:text/javascript,export default 0')).toBe('')
     expect(loaderDirectory('https://cdn.example/pqc/pqc.mjs')).toBe('')
   })
@@ -736,6 +738,13 @@ describe('the directory of the moduleUrl loader', () => {
 
     it("is the symlink's directory under --preserve-symlinks", async () => {
       vi.stubEnv('NODE_OPTIONS', '--max-old-space-size=4096 --preserve-symlinks')
+      const { loaderDirectory } = await transpiledPqc({ browser: false })
+
+      expect(loaderDirectory(pathToFileURL(join(dir, 'pqc.mjs')))).toBe(`${dir}/`)
+    })
+
+    it("is the symlink's directory under NODE_PRESERVE_SYMLINKS=1", async () => {
+      vi.stubEnv('NODE_PRESERVE_SYMLINKS', '1')
       const { loaderDirectory } = await transpiledPqc({ browser: false })
 
       expect(loaderDirectory(pathToFileURL(join(dir, 'pqc.mjs')))).toBe(`${dir}/`)

@@ -1192,10 +1192,15 @@ function realLoaderPath(path: string, moduleUrl: string | URL | undefined): stri
   }
 }
 
-// --preserve-symlinks on Node's command line or in NODE_OPTIONS.
+// --preserve-symlinks on Node's command line or in NODE_OPTIONS, or
+// NODE_PRESERVE_SYMLINKS=1, which turns on the same resolver option.
 function preservesSymlinks(): boolean {
   const options = process.env['NODE_OPTIONS']?.split(/\s+/) ?? []
-  return process.execArgv.includes('--preserve-symlinks') || options.includes('--preserve-symlinks')
+  return (
+    process.env['NODE_PRESERVE_SYMLINKS'] === '1' ||
+    process.execArgv.includes('--preserve-symlinks') ||
+    options.includes('--preserve-symlinks')
+  )
 }
 
 // How import() resolves `moduleUrl` from this module. A bare specifier, one
@@ -1236,10 +1241,11 @@ function isBareSpecifier(specifier: string): boolean {
 }
 
 // Whether `location` is a URL rather than a path: it parses as one with `//`
-// after its scheme, or is a data: or blob: URL. A path can hold a colon, as in
-// build:v2/pqc.wasm or a Windows drive letter, which takes a one-letter scheme.
+// after its scheme, or is a data:, blob: or file: URL (file:/x is absolute
+// too). A path can hold a colon, as in build:v2/pqc.wasm or a Windows drive
+// letter, which takes a one-letter scheme.
 function isUrl(location: string): boolean {
-  if (/^(?:data|blob):/i.test(location)) {
+  if (/^(?:data|blob|file):/i.test(location)) {
     return true
   }
   if (!/^[a-z][a-z0-9+.-]+:\/\//i.test(location)) {
