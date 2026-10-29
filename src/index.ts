@@ -41,8 +41,9 @@ const objectHasOwn = Function.prototype.call.bind(Object.prototype.hasOwnPropert
 // constructors and Math functions in place of the globals of the same names
 // (native/glue-intrinsics.pre.js) to build its heap views, at instantiation and
 // whenever a call grows memory, and to compute how far to grow, and the memory
-// getter and method in place of WebAssembly.Memory.prototype's once the module
-// is instantiated (native/glue-intrinsics.post.js). init() imports the
+// getter and method in place of WebAssembly.Memory.prototype's from just
+// before the factory resolves, when it also rebuilds the views built during
+// instantiation (native/glue-intrinsics.post.js). init() imports the
 // package's glue only when it runs, so copies the glue took itself could
 // already be replaced ones. Where there is no WebAssembly the memory entries
 // are undefined, and init() cannot load the module there anyway.
@@ -651,11 +652,11 @@ export interface PqcWasmModuleOptions {
    * `Math` functions, and of `WebAssembly.Memory.prototype`'s `buffer` getter
    * and `grow` method, that the package captured when it loaded. The
    * package's factory builds its heap views with the constructors, sizes memory
-   * growth with the `Math` functions and, once the module is instantiated,
-   * reads the memory's buffer and grows it with the getter and method. So
-   * replacing those globals after the package loads, or patching that
-   * prototype after `init()` settles, does not change which buffer the views
-   * are on. Computing how far to grow still reads
+   * growth with the `Math` functions and, before it resolves, switches the
+   * memory to the getter and method and rebuilds the views through them. So
+   * once `init()` has settled, the views are on the memory's own buffer,
+   * whatever code that ran after the package loaded did to those globals or
+   * that prototype. Computing how far to grow still reads
    * `%TypedArray%.prototype.length` and `ArrayBuffer.prototype.byteLength`
    * through the prototypes (Qbit-Org/qbit-pqc#10). Its contents are internal.
    * A factory that wraps the package's should pass it on unchanged, for

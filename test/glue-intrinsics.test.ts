@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import ts from 'typescript'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { InitOptions, PqcClient, PqcKeyPair, PqcWasmModule, PqcWasmModuleFactory } from '../src/index'
@@ -417,6 +418,41 @@ describe('the glue builds its heap views and grows memory with captured intrinsi
   it.each(malformedPaths.map(path => [path.name, path] as const))('through %s', async (_name, path) => {
     await replacedBeforeInit(path)
   })
+
+  // While the module is instantiated, updateMemoryViews reads the memory's
+  // buffer through WebAssembly.Memory.prototype, before the post-js shadows it
+  // and rebuilds the views through the captured getter. Here that getter
+  // returns a decoy only while init() runs, and the calls after it do not grow
+  // memory, so they copy through the views init() left behind.
+  it.each(loadPaths.map(path => [path.name, path] as const))(
+    'WebAssembly.Memory.prototype.buffer patched only while init() runs, through %s',
+    async (_name, path) => {
+      const pkg = await loadMarkedPackage([])
+      const options = path.options()
+      let decoys = 0
+      const restore = patchDescriptor(memoryPrototype, 'buffer', {
+        get(this: WebAssembly.Memory) {
+          decoys += 1
+          return new RealArrayBuffer((realMemoryBuffer.call(this) as ArrayBuffer).byteLength)
+        },
+      })
+      let client: PqcClient
+      try {
+        client = await pkg.init(options)
+      } finally {
+        restore()
+      }
+      takeModule()
+
+      // Control: instantiating the module read its buffer through the decoy.
+      expect(decoys).toBeGreaterThan(0)
+      const heapBytes = client.wasmHeapBytes()
+      expect(client.keygen(syntheticBytes(128, 0x2a))).toEqual(signingKey)
+      expect(client.sign(signingKey.secretKey, message)).toEqual(expected.signature)
+      // Control: neither call grew memory, which would rebuild the views.
+      expect(client.wasmHeapBytes()).toBe(heapBytes)
+    }
+  )
 })
 
 describe('the glue binds what it uses to the captured copies', () => {
@@ -439,9 +475,58 @@ describe('the glue binds what it uses to the captured copies', () => {
     }
   })
 
+  // A key that the wrapper renamed, or the glue reads under another name,
+  // would silently fall back to the glue's own copy.
+  it('reads exactly the entries GLUE_INTRINSICS in src/index.ts holds', () => {
+    const parse = (path: string) =>
+      ts.createSourceFile(
+        path,
+        readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'),
+        ts.ScriptTarget.Latest,
+        true
+      )
+    const calls = (source: ts.SourceFile): ts.CallExpression[] => {
+      const found: ts.CallExpression[] = []
+      const visit = (node: ts.Node): void => {
+        if (ts.isCallExpression(node)) found.push(node)
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+      return found
+    }
+    // The keys of the one object literal passed to Object.freeze whose keys
+    // include Int8Array.
+    const frozenKeys = (source: ts.SourceFile): string[] => {
+      const literals = calls(source)
+        .filter(call => call.expression.getText(source) === 'Object.freeze')
+        .map(call => call.arguments[0])
+        .filter(
+          (argument): argument is ts.ObjectLiteralExpression =>
+            argument !== undefined && ts.isObjectLiteralExpression(argument)
+        )
+        .map(literal => literal.properties.map(property => property.name?.getText(source) ?? '<unnamed>'))
+        .filter(keys => keys.includes('Int8Array'))
+      expect(literals, source.fileName).toHaveLength(1)
+      return [...literals[0]!].sort()
+    }
+
+    const wrapper = frozenKeys(parse('src/index.ts'))
+    expect(frozenKeys(parse('native/glue-intrinsics.extern-pre.js'))).toEqual(wrapper)
+    const pre = parse('native/glue-intrinsics.pre.js')
+    const read = calls(pre)
+      .filter(call => call.expression.getText(pre) === 'qbitPqcIntrinsic')
+      .map(call => call.arguments[0])
+      .map(argument => (argument !== undefined && ts.isStringLiteral(argument) ? argument.text : '<not a literal>'))
+    expect([...read].sort()).toEqual(wrapper)
+    expect([...glue.matchAll(/\bqbitPqcIntrinsic\("(\w+)"\)/g)].map(match => match[1]).sort()).toEqual(wrapper)
+  })
+
   it('shadows the memory buffer getter and grow method before the factory resolves', () => {
     const shadow = factory.indexOf('Object.defineProperties(qbitPqcMemory,{buffer:')
     expect(shadow, 'own buffer and grow on the memory').toBeGreaterThan(factory.indexOf('run();'))
     expect(shadow).toBeLessThan(factory.indexOf('moduleRtn=Module'))
+    // ...and then rebuilds the views built while the module was instantiated.
+    expect(factory.indexOf('updateMemoryViews()}', shadow)).toBeGreaterThan(shadow)
+    expect(factory.indexOf('updateMemoryViews()}', shadow)).toBeLessThan(factory.indexOf('moduleRtn=Module'))
   })
 })

@@ -114,8 +114,9 @@ COMMON_FLAGS=(
   # the default loader (imported only when init() runs), moduleUrl and
   # createModule alike. Anything missing falls back to the copies the
   # --extern-pre-js takes when pqc.mjs itself is evaluated, outside the
-  # factory. The --post-js gives the instantiated memory own buffer and grow
-  # properties that use the captured getter and method. The growth
+  # factory. The --post-js, which runs before the factory resolves, gives the
+  # memory own buffer and grow properties that use the captured getter and
+  # method, and rebuilds the views built during instantiation. The growth
   # computation's reads of %TypedArray%.prototype.length and
   # ArrayBuffer.prototype.byteLength are not covered (Qbit-Org/qbit-pqc#10).
   --extern-pre-js native/glue-intrinsics.extern-pre.js
