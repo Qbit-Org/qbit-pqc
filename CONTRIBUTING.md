@@ -125,8 +125,10 @@ qbit Core does. Never reformat them, and change them only as described here:
   neither Docker nor Emscripten. `wasm/SHA256SUMS` pins `pqc.mjs` and
   `pqc.wasm` (`pnpm check:wasm`), and `pnpm check:wasm:repro` rebuilds them
   from source. Change it only with `pnpm build:wasm`.
-- `native/` is the C source compiled with the vendored sources into
-  `wasm/pqc.wasm`. Change it only together with the rebuilt `wasm/` files.
+- `native/` is the C shim compiled with the vendored sources into
+  `wasm/pqc.wasm`, and the JavaScript that `scripts/build-wasm.sh` adds to the
+  glue in `wasm/pqc.mjs` (`--pre-js` and `--extern-pre-js`). Change it only
+  together with the rebuilt `wasm/` files.
 
 `.gitattributes` turns off line-ending conversion for `fixtures/`, `vendor/`
 and `wasm/`, so a checkout with `core.autocrlf` cannot rewrite them, and

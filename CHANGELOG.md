@@ -45,6 +45,39 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
   against the recorded vectors. Before, resolving one threw
   `ERR_PACKAGE_PATH_NOT_EXPORTED`. The pattern reaches only files in
   `fixtures/`.
+- The Emscripten glue builds `HEAPU8` and its other heap views, when the
+  module is instantiated and whenever a call grows WASM memory, with
+  typed-array constructors captured when the package loads, and computes how
+  far to grow with captured `Math` functions. It used the globals of that
+  moment, so code that replaced `globalThis.Uint8Array` or `Math` after the
+  package loaded chose the view the wrapper copies inputs and secret keys
+  into and out of, and how much memory a call grew. `init()` passes the
+  package's copies to the factory for the default loader, `moduleUrl` and
+  `createModule`; a factory called without them uses copies the glue takes
+  when it is imported. Keys, signatures and the module's exports are
+  unchanged.
+
+### Native library
+
+- The vendored `libbitcoinpqc` is pinned to `Qbit-Org/qbit-libbitcoinpqc` at
+  `edcea6cb` (previously `70008b93`). Four vendored files change: `sha2.c` and
+  `sha2.h` gain test-only helpers that the WASM build does not compile, and
+  `hash_sha2.c` and `sign.c` rewrite a zeroing loop so that its counter does
+  not wrap past zero. Keys, signatures and verification results are
+  unchanged; the golden vectors and qbit Core's signatures still match byte
+  for byte.
+- `qbit_pqc_sign_with_stats` zeroes `stats_out` before it rejects its
+  arguments with `BAD_ARG`, so every return writes the stats. The typed API
+  always passes valid arguments, so nothing it returns changes.
+- `wasm/pqc.mjs` and `wasm/pqc.wasm`, and the copy of `pqc.wasm` embedded in
+  `lib/index.mjs`, are rebuilt with these changes and the glue change above.
+  Their SHA-256 values in `wasm/SHA256SUMS` are now
+  `091449fc10219a553c551bc41821888d66d640a3c6bf772c906e150ea79b8279` for
+  `pqc.mjs` (previously `4c9f9d9d…`) and
+  `f7bbbf8ce9cc7d039c1083ddebfd8fdd176864d2bae61b2021eb7f391dd678aa` for
+  `pqc.wasm` (previously `8696a3a4…`). Integrators who pin these hashes, as
+  qbit-wallet does in `scripts/security/sdk-package-pins.json`, must update
+  them.
 
 ## 0.1.0 (2026-10-26)
 

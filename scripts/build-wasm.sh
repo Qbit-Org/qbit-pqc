@@ -105,6 +105,16 @@ COMMON_FLAGS=(
   '-sINCOMING_MODULE_JS_API=["locateFile","wasmBinary"]'
   '-sEXPORTED_RUNTIME_METHODS=["HEAPU8"]'
   '-sEXPORTED_FUNCTIONS=["_malloc","_free","_qbit_pqc_public_key_size","_qbit_pqc_secret_key_size","_qbit_pqc_signature_size","_qbit_pqc_keygen_entropy_min_size","_qbit_pqc_keygen","_qbit_pqc_secret_key_validate","_qbit_pqc_sign","_qbit_pqc_sign_with_stats","_qbit_pqc_verify"]'
+  # The glue builds HEAPU8, which the wrapper copies inputs and secret keys
+  # through, and sizes memory growth with typed-array constructors and Math.
+  # The --pre-js shadows those names inside the factory with the copies the
+  # caller passes as Module.qbitPqcIntrinsics: init() passes the ones the
+  # package captured when it loaded, for the default loader (imported only
+  # when init() runs), moduleUrl and createModule alike. A factory called
+  # without them falls back to the copies the --extern-pre-js takes when
+  # pqc.mjs itself is evaluated, which is outside the factory.
+  --extern-pre-js native/glue-intrinsics.extern-pre.js
+  --pre-js native/glue-intrinsics.pre.js
 )
 
 build_one() {

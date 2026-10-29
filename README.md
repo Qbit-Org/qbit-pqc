@@ -199,7 +199,7 @@ corrupted key and what to change after a `SIGNING_LIMIT` error.
 ## Upstream
 
 The vendored C inventory is pinned to
-`Qbit-Org/qbit-libbitcoinpqc@70008b9362f4f35f3be94283173fb41d28badb38`.
+`Qbit-Org/qbit-libbitcoinpqc@edcea6cb89941fd60c8919eee74ec490ec914489`.
 See `vendor/libbitcoinpqc-qbit/UPSTREAM.md` for the copied inventory and
 license notes.
 

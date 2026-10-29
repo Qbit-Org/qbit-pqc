@@ -12,16 +12,18 @@
 // constructors, getters and methods, plus the DataView methods, Math and
 // Number, so a patched prototype can neither change the derived key nor keep
 // it from zeroing its buffers. Error constructors are still looked up when
-// thrown; whatever they resolve to, the call throws. This covers the calls on a
-// client, not loading: init() and the Emscripten loader look up globals such as
-// WebAssembly, fetch and atob while init() runs, so code that runs before it
-// settles can change the module it loads.
+// thrown; whatever they resolve to, the call throws. The Emscripten glue builds
+// HEAPU8, the view every copy goes through, and sizes memory growth with the
+// constructors and Math functions in GLUE_INTRINSICS below. This covers the
+// calls on a client, not loading: init() and the Emscripten loader look up
+// globals such as WebAssembly, fetch and atob while init() runs, so code that
+// runs before it settles can change the module it loads.
 const IntrinsicUint8Array = Uint8Array
 const IntrinsicUint32Array = Uint32Array
 const IntrinsicDataView = DataView
 const IntrinsicObjectPrototype = Object.prototype
 const { from: arrayFrom } = Array
-const { ceil: mathCeil, floor: mathFloor } = Math
+const { ceil: mathCeil, floor: mathFloor, max: mathMax, min: mathMin } = Math
 const { isFinite: numberIsFinite, isInteger: numberIsInteger } = Number
 const {
   defineProperties: objectDefineProperties,
@@ -33,6 +35,24 @@ const objectHasOwn = Function.prototype.call.bind(Object.prototype.hasOwnPropert
   object: object,
   key: PropertyKey
 ) => boolean
+// Passed to the Emscripten factory as `qbitPqcIntrinsics`. Its glue uses them
+// in place of the globals of the same names (native/glue-intrinsics.pre.js) to
+// build its heap views, at instantiation and whenever a call grows memory, and
+// to compute how far to grow. init() imports the package's glue only when it
+// runs, so copies the glue took itself could already be replaced ones.
+const GLUE_INTRINSICS = Object.freeze({
+  Int8Array,
+  Uint8Array: IntrinsicUint8Array,
+  Int16Array,
+  Uint16Array,
+  Int32Array,
+  Uint32Array: IntrinsicUint32Array,
+  Float32Array,
+  Float64Array,
+  BigInt64Array,
+  BigUint64Array,
+  Math: Object.freeze({ ceil: mathCeil, max: mathMax, min: mathMin }),
+})
 
 const OK = 0
 const ERROR_BAD_KEY = -2
@@ -954,7 +974,8 @@ async function loadModule(options: InitOptions): Promise<PqcWasmModule> {
   const locateDefault = fromModuleUrl ? locateBesideModule : bytes === undefined ? packageFileUrl : locateUnloaded
   // Where the factory loads pqc.wasm from, when it has no bytes.
   let wasmUrl: string | undefined
-  const moduleOptions: PqcWasmModuleOptions = {
+  const moduleOptions: PqcWasmModuleOptions & { qbitPqcIntrinsics: typeof GLUE_INTRINSICS } = {
+    qbitPqcIntrinsics: GLUE_INTRINSICS,
     locateFile: (path, prefix) => {
       const located = locateFile?.(path, prefix) ?? locateDefault(path, prefix)
       if (path === 'pqc.wasm') {

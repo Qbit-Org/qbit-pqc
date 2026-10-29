@@ -41,6 +41,17 @@ captured when the module loads,
 so code that replaces `globalThis.Uint8Array` or patches
 `%TypedArray%.prototype` after that cannot change how many bytes are written,
 or the key `derivePQCKey` derives.
+The Emscripten glue builds `HEAPU8`, the view those copies go through, when
+the module is instantiated and again whenever a call grows WASM memory, and it
+computes how far to grow. For both it uses the typed-array constructors and
+`Math` functions the package captured when it loaded, which `init()` passes to
+the factory, so replacing a typed-array constructor or `Math` after that cannot
+point the copies, secret keys included, at another buffer or change how much
+memory a call grows. This holds for the default loader, which `init()` imports
+only when it runs, and for `moduleUrl` and `createModule`. A `createModule`
+factory that wraps the package's should pass on the options it receives, as
+`createModule: createPqcModule` does; called without them, the glue uses the
+copies it took when it was imported.
 Validation never runs caller code, such as a `Proxy` trap in an argument's
 prototype chain, except the traps of a `Proxy` passed as `options` (see
 [Message size](signing.md#message-size)). The client `init()` resolves with is frozen,
