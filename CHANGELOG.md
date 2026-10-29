@@ -22,6 +22,29 @@ Notable changes to `@qbit-oss/pqc`. Versions follow SemVer (see
   unconditionally must check for `undefined` first. `SIGNING_LIMIT` errors,
   the only ones documented to carry stats, keep them, and maintainers chose to
   ship this in a patch release.
+- `derivePQCKey` and `deriveP2mrDescriptorKey`, on the client and as named
+  exports, also read the key pair as `publicKey` and `secretKey`, the names
+  `keygen` uses: non-enumerable getters, with no setter, that return whatever
+  the result's `pk32` and `sk64`, which stay, hold when read. They are the
+  same `Uint8Array`s, not copies, so zeroing either name zeroes both. Both
+  functions now return the new type `PqcDerivedKeyPair`, which extends the
+  unchanged `PqcDerivedKey` with the two read-only fields.
+  **Compatibility:** the result's runtime shape, enumeration and serialization
+  are unchanged from 0.1.0: `Object.keys`, `JSON.stringify` and deep equality
+  see only `{ pk32, sk64 }`. A spread, `Object.assign` or
+  `structuredClone`/`postMessage` copy of a derived key has only `pk32` and
+  `sk64`, although TypeScript still types the copy as having `publicKey` and
+  `secretKey`, so read the aliases from the original result or copy `pk32` and
+  `sk64`. TypeScript code that implements `PqcClient` itself, such as a fake
+  client, must now return the aliases from its derive methods; the maintainers
+  chose to ship this in a patch release.
+- New `./fixtures/*` export: the conformance fixtures the package already
+  ships resolve by name, such as
+  `@qbit-oss/pqc/fixtures/qbit-core-signature-vectors.json` and the
+  `slh-dsa-golden.json.sha256` sidecar, so tests can check keys and signatures
+  against the recorded vectors. Before, resolving one threw
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. The pattern reaches only files in
+  `fixtures/`.
 
 ## 0.1.0 (2026-10-26)
 

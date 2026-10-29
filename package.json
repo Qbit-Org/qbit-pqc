@@ -37,6 +37,7 @@
     },
     "./wasm/pqc.wasm": "./wasm/pqc.wasm",
     "./wasm/SHA256SUMS": "./wasm/SHA256SUMS",
+    "./fixtures/*": "./fixtures/*",
     "./LICENSE": "./LICENSE",
     "./THIRD_PARTY_NOTICES": "./THIRD_PARTY_NOTICES",
     "./package.json": "./package.json"

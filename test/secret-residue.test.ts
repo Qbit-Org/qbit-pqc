@@ -3,7 +3,14 @@ import { readFileSync } from 'node:fs'
 
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { constants, PqcError, type PqcClient, type PqcKeyPair, type PqcWasmModule } from '../src/index'
+import {
+  constants,
+  PqcError,
+  type PqcClient,
+  type PqcDerivedKeyPair,
+  type PqcKeyPair,
+  type PqcWasmModule,
+} from '../src/index'
 import { freshClient } from './fresh-client'
 
 // Secret residue in WASM linear memory after each public operation, on its
@@ -302,6 +309,10 @@ describe('WASM linear-memory secret residue', () => {
       }
       const { value } = await probe(secrets, 'burned', client => client.derivePQCKey(masterSeed, 0, 0, 0))
       expect(value).toEqual({ pk32: derived.publicKey, sk64: derived.secretKey })
+      // The aliases read the same arrays, so they leave no other copy to zero.
+      const { pk32, sk64, publicKey, secretKey } = value as PqcDerivedKeyPair
+      expect(publicKey).toBe(pk32)
+      expect(secretKey).toBe(sk64)
     })
 
     it('rejects an index outside uint32', async () => {

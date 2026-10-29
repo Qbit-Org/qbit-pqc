@@ -21,6 +21,7 @@ mnemonic -> BIP39 seed -> BIP32 root private key
   -> @qbit-oss/pqc deriveP2mrDescriptorKey(leaf, index):
      qbit Core PQC HKDF using account=0, change=0, index={index}
      -> 128-byte SLH-DSA keygen entropy -> {pk32, sk64}
+        (also read as publicKey and secretKey: accessors over the same arrays)
   -> @qbit-oss/pqc sign/verify
 ```
 
@@ -152,7 +153,12 @@ above: it requires a 32-byte leaf key and `0 <= rangeIndex <= 0x7fffffff`, and
 fixes `hkdf_account` and `hkdf_change` to `0`. The low-level
 `derivePQCKey(masterSeed, hkdfAccount, hkdfChange, hkdfIndex)` primitive takes
 any non-empty seed and any uint32 tuple; its numbers are HKDF fields, not BIP32
-path fields. Both return `{pk32, sk64}`. The resulting secret key is 64 bytes
+path fields. Both return `{pk32, sk64}`, which also reads its keys as
+`publicKey` and `secretKey`: non-enumerable accessors that return whatever
+`pk32` and `sk64` hold, the same two arrays, and undefined once one is deleted.
+A spread, `Object.assign` or `structuredClone`/`postMessage` copy has only
+`pk32` and `sk64`, although TypeScript types it with the aliases, so read them
+from the original result. The resulting secret key is 64 bytes
 and the public key is the last 32 bytes of that secret key.
 
 ## Fixtures
@@ -180,6 +186,25 @@ HKDF reference algorithm, then verifies the fixture with the package WASM and
 the public `derivePQCKey(...)` API. It also checks that
 `deriveP2mrDescriptorKey(...)` reproduces the descriptor-generation vectors,
 not the recovery-only one, and rejects the primitive-only index.
+
+Every file in `fixtures/` ships in the npm package and loads by name through
+the package's `./fixtures/*` export, so downstream tests can check keys and
+signatures against these vectors without regenerating them. Each of those
+files is public API, covered by semver like the rest of the package (see
+"Versioning" in [RELEASING.md](../RELEASING.md)). On every supported Node
+version, load one with `createRequire` from `node:module`:
+`createRequire(import.meta.url)('@qbit-oss/pqc/fixtures/qbit-core-derivation.json')`.
+An import attribute,
+`import vectors from '@qbit-oss/pqc/fixtures/qbit-core-derivation.json' with { type: 'json' }`,
+also works where JSON modules and import attributes are supported: in
+bundlers, and on every supported Node version, where both are stable (Node
+20.18.3 and 22.12.0 and later). TypeScript accepts it only with `module` set
+to `node18`, `nodenext`, `esnext` or `preserve`, and rejects it under
+`node16`. `derivePQCKey` and
+`deriveP2mrDescriptorKey` return the keys as `pk32` and `sk64`; `publicKey`
+and `secretKey`, the names `keygen` uses, are getters over the same arrays, so
+in `const { publicKey, secretKey } = deriveP2mrDescriptorKey(leaf, index)`
+zeroing `secretKey` zeroes `sk64` too.
 
 ## Core Binary Oracle
 
