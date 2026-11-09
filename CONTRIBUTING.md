@@ -151,7 +151,21 @@ checks the two agree.
 Target the branch that "Branches" in [RELEASING.md](RELEASING.md) names:
 `main` for features and fixes, and `release/X.Y` only for fixes, docs, and
 version and CHANGELOG updates. Pull requests need green `verify`, `mv3-smoke`
-and `bundler-smoke` checks and are squash-merged.
+and `bundler-smoke` checks.
+
+Every commit on `main` and `release/*` must carry a verified signature, and
+pull requests merge with a merge commit: squash and rebase merges are off. You
+don't need to sign your own commits. When a pull request is ready, a
+maintainer squashes it into one commit, signs it and merges it. That commit's
+message is the pull request's title and description, then a list of the
+squashed commits with their `Co-authored-by` and `Signed-off-by` trailers. Put
+credits in your commits, not in the description.
+
+A back-merge pull request from `release/X.Y` or `backmerge/X.Y` (see
+[RELEASING.md](RELEASING.md)) is the exception. It is merged as it is, with a
+merge commit, so that the release commits join `main`'s history, and every
+commit in it must already carry a verified signature. That includes the merge
+of `main` that a `backmerge/X.Y` branch adds.
 
 When a change alters the published package's API or behaviour, add an entry to
 [CHANGELOG.md](CHANGELOG.md) under the target branch's unreleased version, and
