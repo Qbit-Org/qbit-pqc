@@ -167,6 +167,10 @@ merge commit, so that the release commits join `main`'s history, and every
 commit in it must already carry a verified signature. That includes the merge
 of `main` that a `backmerge/X.Y` branch adds.
 
+The rulesets that enforce this are in
+[`.github/rulesets/`](.github/rulesets/), with how to apply them and check
+them against GitHub.
+
 When a change alters the published package's API or behaviour, add an entry to
 [CHANGELOG.md](CHANGELOG.md) under the target branch's unreleased version, and
 update the README and `docs/` to match.
