@@ -31,15 +31,22 @@ every candidate and release must pass.
 
 - `main` is the integration branch. Feature and fix PRs target `main`.
 - `release/X.Y` stabilizes one minor line. It is cut from `main` when the line
-  starts stabilizing and takes only fixes, docs, and version and CHANGELOG
-  updates, each through a PR with green `verify`, `mv3-smoke` and
-  `bundler-smoke` checks. Never merge `main` into a release branch.
-- **Fixes flow back to `main`** through a back-merge PR from `release/X.Y` into
-  `main`. Keep one draft back-merge PR open while the line has fixes `main`
-  lacks, and merge it at least once per published version and before the next
-  line is cut, so `main` never lacks a released fix. If it conflicts, resolve
-  on a short-lived `backmerge/X.Y` branch cut from `release/X.Y` with `main`
-  merged in, not on `release/X.Y` itself.
+  starts stabilizing, at a commit whose `verify`, `mv3-smoke` and
+  `bundler-smoke` checks are green (nothing enforces that at the cut). It
+  takes only fixes, docs, and version and CHANGELOG updates, each through a PR
+  with green `verify`, `mv3-smoke`, `bundler-smoke` and `signed-landing`
+  checks. Never merge `main` into a release branch.
+- **Fixes flow back to `main`** through a back-merge PR from a `backmerge/X.Y`
+  branch into `main`: cut that branch from `release/X.Y` and merge `main` into
+  it. `main` requires branches to be up to date and nobody can bypass that, so
+  a PR from `release/X.Y` itself could not merge once `main` has moved on.
+  Keep one draft back-merge PR open while the line has fixes `main` lacks, and
+  merge it at least once per published version and before the next line is
+  cut, so `main` never lacks a released fix. Before merging it, merge
+  `release/X.Y` and `main` into `backmerge/X.Y` again, which is also where a
+  conflict is resolved. Make those merges locally and sign them
+  (`git merge -S`, and `git commit -S` to finish one that stopped on
+  conflicts), never with GitHub's "Update branch" button.
 - A fix that lands on `main` first and is also needed on an active line is
   cherry-picked (`git cherry-pick -x`) onto `release/X.Y` in its own PR.
 - The `package.json` version on `main` is never published. A back-merge may
