@@ -154,14 +154,17 @@ version and CHANGELOG updates. Pull requests need green `verify`, `mv3-smoke`
 and `bundler-smoke` checks, and a green `signed-landing` check to merge.
 
 Every commit on `main` and `release/*` must carry a verified signature, and
-pull requests merge with a merge commit: squash and rebase merges are off. You
+pull requests land with GitHub's squash merge: rebase merges are off. You
 don't need to sign your own commits. When a pull request is ready, a
-maintainer squashes it into one commit, signs it and merges it. That commit's
+maintainer squashes it into one commit, signs it and pushes it. That commit's
 message is the pull request's title and description, then a list of the
 squashed commits with their `Co-authored-by` and `Signed-off-by` trailers. Put
-credits in your commits, not in the description. An open pull request
-usually shows a failing `signed-landing` check until that is done. That is
-expected.
+credits in your commits, not in the description. An open pull request usually
+shows a failing `signed-landing` check until that is done. That is expected.
+The pull request is then squash-merged: GitHub makes one commit on the target
+branch, with the signed commit's message, and signs it itself, so the branch
+gains that one commit and no merge commit. The commit the maintainer signed
+stays as the pull request's head (`refs/pull/<number>/head`).
 
 A back-merge pull request, from a `backmerge/X.Y` branch (see
 [RELEASING.md](RELEASING.md)) is the exception. It is merged as it is, with a
@@ -171,7 +174,10 @@ of `main` that a `backmerge/X.Y` branch adds. Make that merge
 locally and sign it (`git merge -S origin/main`; if it stops on conflicts,
 finish it with `git commit -S`, because `git merge --continue` does not sign),
 never with GitHub's "Update branch" button or its web conflict editor: GitHub
-signs those commits itself, and the check doesn't judge a back-merge.
+signs those commits itself, and the `signed-landing` check refuses a back-merge
+whose head commit GitHub signed. It passes one whose head commit a person
+signed with an OpenPGP key that is on their own GitHub account, and that
+signature answers for everything the back-merge brings.
 
 The rulesets that enforce this are in
 [`.github/rulesets/`](.github/rulesets/), with how to apply them and check

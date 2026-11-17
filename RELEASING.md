@@ -46,7 +46,11 @@ every candidate and release must pass.
   `release/X.Y` and `main` into `backmerge/X.Y` again, which is also where a
   conflict is resolved. Make those merges locally and sign them
   (`git merge -S`, and `git commit -S` to finish one that stopped on
-  conflicts), never with GitHub's "Update branch" button.
+  conflicts), never with GitHub's "Update branch" button. If `main` has
+  nothing the branch lacks, `git merge` makes no commit, and the tip can be
+  the commit GitHub made on `release/X.Y`: put an empty commit you sign on top
+  (`git commit -S --allow-empty`), because the `signed-landing` check judges
+  the head commit.
 - A fix that lands on `main` first and is also needed on an active line is
   cherry-picked (`git cherry-pick -x`) onto `release/X.Y` in its own PR.
 - The `package.json` version on `main` is never published. A back-merge may
